@@ -37,7 +37,7 @@ jobs:
       - name: Commit refreshed cache
         shell: bash
         run: |
-          if git diff --quiet -- public/data/jwst-horizons.json; then
+          if [[ -z "$(git status --porcelain -- public/data/jwst-horizons.json)" ]]; then
             echo 'JWST ephemeris cache is already current.'
             exit 0
           fi
