@@ -24,9 +24,13 @@ The shared observatory view includes:
 - Continuous time-compression slider
 - Solar-illumination/eclipsing visualization where it carries physical information
 
-Hubble is currently a circular propagated approximation and does not yet claim the spacecraft's current orbital phase. The next Hubble data milestone is TLE + SGP4.
+### Current truth sources
 
-Webb's displayed L2 path remains educational until an authoritative mission ephemeris is connected.
+**Hubble is now driven by real TLE/SGP4 state rather than a circular phase placeholder.** The browser propagates NORAD 20580 with `satellite.js`. The checked-in launch-day TLE has epoch `2026-08-29T20:39:49Z`; CelesTrak's current GP summary at integration time reported an orbit of roughly 470–472 km altitude, 28.47° inclination and 94.03 minutes period. The TLE should be refreshed when the project is revisited after its useful prediction window.
+
+**Webb is now driven by JPL Horizons spacecraft `-170` ephemeris when the service is available.** The browser requests Earth-centered, ecliptic Cartesian vectors from Horizons and interpolates them onto the shared simulation clock. The Sun vector is requested from the same service so the Earth-centered vectors can be transformed into the project's Sun–Earth rotating display frame. The previous hand-drawn Webb halo phase/trail is hidden when real Horizons data are available. If Horizons cannot be reached, the UI does not claim a fake current phase.
+
+STScI documents JWST's Horizons observer code as `500@-170`. NASA's Meteoroid Engineering Model library also publishes a real Earth-centered JWST trajectory file; it is retained as an independent historical/reference source, not silently extrapolated to current dates.
 
 ### L2 illumination and thermal geometry
 
