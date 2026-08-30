@@ -32,7 +32,6 @@ const satellite = await import('https://cdn.jsdelivr.net/npm/satellite.js@6.0.2/
 const HST_TLE1 = '1 20580U 90037B   26241.86099220  .00006182  00000-0  18992-3 0  9994';
 const HST_TLE2 = '2 20580  28.4729 296.7524 0001603 231.7887 128.2565 15.31502187799872';
 const hstSatrec = satellite.twoline2satrec(HST_TLE1, HST_TLE2);
-const EARTH_RADIUS_KM = 6371;
 const HST_READABLE_RADIUS = 1.05;
 const KM_PER_LOCAL_UNIT = 100000;
 const OBLIQUITY = THREE.MathUtils.degToRad(23.44);
@@ -60,10 +59,7 @@ function parseHorizonsVectors(text) {
     const y = Number(p[3]);
     const z = Number(p[4]);
     if (![jd, x, y, z].every(Number.isFinite)) continue;
-    rows.push({
-      ms: (jd - 2440587.5) * 86400000,
-      v: new THREE.Vector3(x, y, z),
-    });
+    rows.push({ ms: (jd - 2440587.5) * 86400000, v: new THREE.Vector3(x, y, z) });
   }
   if (rows.length < 10) throw new Error(`Horizons returned only ${rows.length} usable samples`);
   return rows;
@@ -71,19 +67,9 @@ function parseHorizonsVectors(text) {
 
 function horizonsUrl(command) {
   const params = new URLSearchParams({
-    format: 'text',
-    COMMAND: `'${command}'`,
-    OBJ_DATA: `'NO'`,
-    MAKE_EPHEM: `'YES'`,
-    EPHEM_TYPE: `'VECTORS'`,
-    CENTER: `'500@399'`,
-    START_TIME: `'2026-01-01'`,
-    STOP_TIME: `'2027-12-31'`,
-    STEP_SIZE: `'12 h'`,
-    REF_PLANE: `'ECLIPTIC'`,
-    VEC_TABLE: `'2'`,
-    CSV_FORMAT: `'YES'`,
-    OUT_UNITS: `'KM-S'`,
+    format: 'text', COMMAND: `'${command}'`, OBJ_DATA: `'NO'`, MAKE_EPHEM: `'YES'`, EPHEM_TYPE: `'VECTORS'`,
+    CENTER: `'500@399'`, START_TIME: `'2026-01-01'`, STOP_TIME: `'2027-12-31'`, STEP_SIZE: `'12 h'`,
+    REF_PLANE: `'ECLIPTIC'`, VEC_TABLE: `'2'`, CSV_FORMAT: `'YES'`, OUT_UNITS: `'KM-S'`,
   });
   return `https://ssd.jpl.nasa.gov/api/horizons.api?${params}`;
 }
@@ -107,15 +93,12 @@ async function loadHorizons() {
 
 function interpolate(samples, ms) {
   if (!samples.length || ms < samples[0].ms || ms > samples[samples.length - 1].ms) return null;
-  let lo = 0;
-  let hi = samples.length - 1;
+  let lo = 0, hi = samples.length - 1;
   while (hi - lo > 1) {
     const mid = (lo + hi) >> 1;
-    if (samples[mid].ms <= ms) lo = mid;
-    else hi = mid;
+    if (samples[mid].ms <= ms) lo = mid; else hi = mid;
   }
-  const a = samples[lo];
-  const b = samples[hi];
+  const a = samples[lo], b = samples[hi];
   const q = THREE.MathUtils.clamp((ms - a.ms) / (b.ms - a.ms), 0, 1);
   return a.v.clone().lerp(b.v, q);
 }
@@ -137,11 +120,7 @@ function eclipticKmToScene(v, ms, units = true) {
   const basis = rotatingBasis(ms);
   if (!basis) return null;
   const scale = units ? 1 / KM_PER_LOCAL_UNIT : 1;
-  return new THREE.Vector3(
-    v.dot(basis.antiSun) * scale,
-    v.dot(basis.north) * scale,
-    v.dot(basis.tangent) * scale,
-  );
+  return new THREE.Vector3(v.dot(basis.antiSun) * scale, v.dot(basis.north) * scale, v.dot(basis.tangent) * scale);
 }
 
 function simulatedMs() {
@@ -176,6 +155,7 @@ function hidePlaceholderTrails() {
   const system = findEarthSystem();
   if (!system) return;
   system.traverse((o) => {
+    if (o.userData?.truthTrail) return;
     if (!(o.isLineLoop || o.isMesh) || !o.material?.color) return;
     const color = o.material.color.getHex();
     if (color === 0xdcecff || color === 0xefb45d) o.visible = false;
@@ -189,18 +169,12 @@ function ensureTruthTrails() {
   const system = findEarthSystem();
   if (!system) return false;
   if (!hstTrail) {
-    hstTrail = new THREE.LineLoop(
-      new THREE.BufferGeometry(),
-      new THREE.LineBasicMaterial({ color: 0xdcecff, transparent: true, opacity: 0.72 }),
-    );
+    hstTrail = new THREE.LineLoop(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0xdcecff, transparent: true, opacity: 0.72 }));
     hstTrail.userData.truthTrail = true;
     system.add(hstTrail);
   }
   if (!webbTruthTrail) {
-    webbTruthTrail = new THREE.Line(
-      new THREE.BufferGeometry(),
-      new THREE.LineBasicMaterial({ color: 0xefb45d, transparent: true, opacity: 0.84 }),
-    );
+    webbTruthTrail = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0xefb45d, transparent: true, opacity: 0.84 }));
     webbTruthTrail.userData.truthTrail = true;
     system.add(webbTruthTrail);
   }
@@ -231,8 +205,7 @@ function jwstScenePosition(ms) {
 
 function refreshHstTrail(ms, readable) {
   if (!ensureTruthTrails()) return;
-  const pts = [];
-  const periodMs = 94.03 * 60 * 1000;
+  const pts = [], periodMs = 94.03 * 60 * 1000;
   for (let i = 0; i < 180; i++) {
     const p = hstScenePosition(ms - periodMs / 2 + (i / 179) * periodMs, readable);
     if (p) pts.push(p);
@@ -242,8 +215,7 @@ function refreshHstTrail(ms, readable) {
 
 function refreshWebbTrail(ms) {
   if (!truth.jwstReady || !ensureTruthTrails()) return;
-  const pts = [];
-  const half = 100 * 86400000;
+  const pts = [], half = 100 * 86400000;
   for (let i = 0; i < 260; i++) {
     const t = ms - half + (i / 259) * half * 2;
     const p = jwstScenePosition(t);
