@@ -22,10 +22,8 @@ await import('./main-core.js?v=20260830p');
 // Freeze the Observatories scene before Roman's independent renderers can replace lastScene.
 const observatoryScene = lastScene;
 
-// main-core's old L2-wave renderer still creates an educational amber Webb tube.
-// It conflicts with the real Horizons overlay and caused a frame-by-frame visible
-// tug-of-war. The empty direct scene group is waveGroup at initial system view;
-// keep Roman's projected purple wave, but refuse future fake amber Webb tubes.
+// main-core still knows how to build the old educational amber Webb wave. Refuse
+// those fake tubes at the source; the real JPL/Horizons tube is created below.
 const legacyWaveGroup = observatoryScene?.children.find((child) => child.isGroup && child.children.length === 0) || null;
 if (legacyWaveGroup) {
   const legacyWaveAdd = legacyWaveGroup.add.bind(legacyWaveGroup);
@@ -145,12 +143,6 @@ function ensureTrails() {
     webbTrail = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0xefb45d, transparent: true, opacity: .84 }));
     webbTrail.userData.truthTrail = true; root.add(webbTrail);
   }
-  if (!webbWaveTrail && observatoryScene) {
-    webbWaveTrail = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0xefb45d, transparent: true, opacity: .92 }));
-    webbWaveTrail.userData.truthTrail = true;
-    webbWaveTrail.renderOrder = 4;
-    observatoryScene.add(webbWaveTrail);
-  }
   return true;
 }
 function hidePlaceholders() {
@@ -200,14 +192,29 @@ function refreshWebbTrail(ms) {
   if (pts.length > 20) webbTrail.geometry.setFromPoints(pts);
 }
 function refreshWebbWaveTrail(ms) {
-  if (!truth.jwstReady || !ensureTrails()) return;
+  if (!truth.jwstReady || !observatoryScene) return;
   const pts = [], half = 182 * DAY_MS;
   for (let i = 0; i < 360; i++) {
     const t = ms - half + (i / 359) * half * 2;
     const p = jwstWaveWorldPos(t);
     if (p) pts.push(p);
   }
-  if (pts.length > 20) webbWaveTrail.geometry.setFromPoints(pts);
+  if (pts.length <= 20) return;
+
+  const curve = new THREE.CatmullRomCurve3(pts, false, 'centripetal');
+  const geometry = new THREE.TubeGeometry(curve, Math.max(360, pts.length * 2), 0.085, 7, false);
+  if (!webbWaveTrail) {
+    webbWaveTrail = new THREE.Mesh(
+      geometry,
+      new THREE.MeshBasicMaterial({ color: 0xefb45d, transparent: true, opacity: 0.92, depthWrite: false }),
+    );
+    webbWaveTrail.userData.truthTrail = true;
+    webbWaveTrail.renderOrder = 6;
+    observatoryScene.add(webbWaveTrail);
+  } else {
+    webbWaveTrail.geometry.dispose();
+    webbWaveTrail.geometry = geometry;
+  }
 }
 function refreshTruthTrails(includeWave = false) {
   const ms = simMs(), readable = document.getElementById('scaleToggle')?.checked ?? true;
