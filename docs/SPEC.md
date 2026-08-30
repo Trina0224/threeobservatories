@@ -12,37 +12,52 @@ The experience must support both historical mission playback and educational exp
 
 Primary mode: Earth-centered LEO propagation.
 
-Initial truth source:
+Truth source:
 - current or archived TLE + SGP4
 
+Current implementation:
+- NORAD 20580 TLE propagated in-browser with `satellite.js`
+- current orbital phase is no longer a hand-chosen circular phase
+- checked-in TLE epoch must be refreshed when used far outside its useful prediction window
+
 Required outputs:
-- ECI/GCRS-like inertial state
-- Earth-fixed sub-satellite point
+- TEME/ECI propagation state
+- display-frame transform
 - altitude
 - orbital period estimate
 - sunlight / Earth-shadow state
 - ground track (later milestone)
 
-Published NASA reference values for sanity checking:
-- altitude: about 483 km
-- inclination: about 28.5 deg
-- period: about 95 min
-- speed: about 27,000 km/h
+Sanity-check values around the 2026-08-30 integration:
+- altitude: about 470–472 km
+- inclination: about 28.47 deg
+- period: about 94.03 min
 
 ### James Webb Space Telescope
 
 Primary modes:
 - launch/transfer playback from authoritative trajectory/ephemeris products
-- L2 historical ephemeris playback
+- L2 ephemeris playback
 - optional propagated CR3BP educational model
+
+Current truth source:
+- JPL Horizons spacecraft ID `-170`
+- Earth-centered ecliptic Cartesian state vectors fetched over HTTP and interpolated on the shared simulation clock
+- same-epoch Sun vectors from Horizons define the Sun–Earth rotating display basis
+- STScI documents JWST as Horizons observer location `500@-170`
+- NASA MEM JWST trajectory remains an independent historical/reference product
+
+Truth/fallback rule:
+- when Horizons data are available, hide the old hand-drawn Webb halo phase/trail
+- if Horizons is unavailable, do not label a renderer placeholder as current mission truth
+- do not extrapolate the older NASA MEM trajectory beyond its supplied time span and call it current ephemeris
 
 Required milestones:
 - launch epoch marker
 - Earth departure
-- mid-course correction markers when authoritative timing/data are available
 - deployment timeline layer
 - arrival/insertion into the Sun–Earth L2 region
-- continuing L2 halo-orbit motion
+- continuing L2 motion from real ephemeris where available
 
 Sanity checks:
 - L2 distance from Earth: about 1.5 million km
@@ -78,9 +93,10 @@ UI:
 - continuous or selectable time-compression rates
 
 Internal requirements:
-- deterministic replay
+- deterministic replay where source data permit it
 - no dependence on browser local timezone
-- ephemeris time conversion isolated in `src/physics/time/`
+- ephemeris time conversion explicit
+- source validity windows respected
 
 ## 4. Scene/view modes
 
@@ -119,10 +135,8 @@ Required educational message:
 Rendering rules:
 - **Hubble:** sunlight / Earth-shadow transitions may use a visible glow/dimming effect because the state changes frequently and therefore carries information.
 - **Webb / Roman:** do not use a permanent sunlight halo as the primary visual explanation; a nearly constant glow becomes decorative.
-- Webb should show a simple Sun-facing sunshield orientation cue and an opposite protected/cold observing side.
-- Roman should show a simpler Sun-facing thermal/orientation cue without implying that Roman has Webb's exact sunshield architecture.
 - A text card may explicitly state that the L2 observatories are normally sunlit and are not relying on Earth to shade them.
-- Do not use large arrows if the same information can be conveyed by attitude, lighting, composition, and concise text.
+- Do not use large arrows or translucent orientation planes when they obscure the scene.
 
 ### Spacecraft Follow View
 
@@ -142,7 +156,7 @@ Heliocentric rendering rules:
 - Earth orbit is a thin, subdued blue-gray reference curve.
 - Roman's launch-to-L2 transfer is the visually dominant path.
 - The transfer spans about three months, therefore the mission path should occupy only about one quarter of Earth's annual orbit rather than visually implying a full-year trajectory.
-- L2 arrival must have dedicated close-up and side views so users can inspect the final approach and planned halo-orbit acquisition without zooming manually from 1 AU scale.
+- L2 arrival must have dedicated close-up and side views.
 
 ### Scale modes
 
@@ -169,64 +183,11 @@ interface StateVector {
 }
 ```
 
-Imported datasets must carry provenance metadata:
-
-```ts
-interface DataSourceMetadata {
-  id: string;
-  mission: 'HST' | 'JWST' | 'ROMAN' | 'SOLAR_SYSTEM';
-  title: string;
-  publisher: string;
-  url: string;
-  retrievedAtUtc: string;
-  productDate?: string;
-  frame?: string;
-  units?: string;
-  timeScale?: string;
-  notes?: string;
-}
-```
+Imported datasets must carry provenance metadata and validity windows.
 
 ## 6. Rendering architecture
 
-Recommended initial stack:
-- TypeScript
-- Vite
-- Three.js
-
-Do not couple Three.js objects to orbital propagators.
-
-Suggested layout:
-
-```text
-src/
-  physics/
-    frames/
-    time/
-    cr3bp/
-    sgp4/
-    interpolation/
-  data/
-    ephemeris/
-    tle/
-    mission-events/
-  missions/
-    hubble/
-    jwst/
-    roman/
-  render/
-    scene/
-    cameras/
-    trails/
-    vectors/
-    spacecraft/
-  ui/
-public/
-  assets/
-    spacecraft/
-  data/
-docs/
-```
+Physics/data truth and Three.js display objects must stay separable. Browser-friendly ephemeris interpolation may be layered over the renderer, but the display layer must not silently manufacture current mission phase when source data are unavailable.
 
 ## 7. Visual-information policy
 
@@ -235,40 +196,36 @@ Every persistent visual effect should answer a question.
 Good examples:
 - Hubble glow disappears in Earth's shadow.
 - A subdued reference plane reveals the out-of-ecliptic extent of a halo orbit.
-- A spacecraft attitude cue shows which side faces the Sun.
+- Real ephemeris/TLE state drives spacecraft phase.
 
 Bad examples:
-- A permanent glow around Webb/Roman that does not change and therefore communicates no useful state.
+- A permanent glow around Webb/Roman that does not change.
 - Reference orbits with the same weight/color as the mission trajectory.
-- Large labels/arrows that obscure the scene without adding information.
-
-When an effect stops carrying state information, prefer geometry, attitude, or concise explanatory text.
+- Large labels/arrows/planes that obscure the scene without adding information.
 
 ## 8. Current implementation milestones
 
-Acceptance criteria for the current generation:
-
 1. Page opens and renders Sun, Earth and Moon.
 2. Simulation clock can pause and advance at multiple rates.
-3. L2 is calculated/positioned from a documented Sun–Earth model or clearly labeled educational approximation.
-4. Hubble moves around Earth and visibly demonstrates sunlight/eclipse state; next truth milestone is TLE + SGP4.
-5. Webb has an ephemeris/trajectory-backed path where available; current placeholder paths stay visibly marked educational.
-6. Roman has a launch-to-L2 mission playback with actual launch events and projected future milestones clearly distinguished.
+3. L2 is positioned from a documented Sun–Earth model or clearly labeled educational approximation.
+4. **Hubble current phase is TLE/SGP4-backed.**
+5. **Webb current/local phase is JPL Horizons-backed when the service is available; placeholder current-phase claims are suppressed otherwise.**
+6. Roman has launch-to-L2 mission playback with actual launch events and projected future milestones clearly distinguished.
 7. All views preserve a consistent mission/simulation time.
 8. User can switch among Earth/GSE, L2, heliocentric, follow, and dedicated L2-arrival views.
 9. Orbit trails can be toggled.
-10. The UI exposes source/provenance and explanatory cards for important geometry.
+10. UI/source copy exposes provenance for Hubble/Webb truth state.
 
 ## 9. Later scientific features
 
+- automatic scheduled HST TLE refresh/cache
+- preprocessed local JWST Horizons/SPICE cache to eliminate runtime network dependence
 - CR3BP integrator and free propagation
 - station-keeping demonstrations
-- `disable station keeping` experiment
 - higher-fidelity eclipse/penumbra modeling
 - real target pointing / field-of-regard constraints
 - instrument field of view overlays
 - archived TLE playback for historical Hubble dates
-- SPICE ingestion pipeline or preprocessed browser-friendly ephemeris cache
 - mission-specific Sun/Earth/Moon avoidance and thermal-angle constraints
 
 ## 10. Non-goals for the current milestone
