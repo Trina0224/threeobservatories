@@ -1,399 +1,247 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
-const KM_PER_RENDER_UNIT = 1_000_000;
 const DAY = 86400;
-const YEAR = 365.256363004 * DAY;
-const EARTH_ORBIT_KM = 149_597_870.7;
-const MOON_ORBIT_KM = 384_400;
 const MOON_PERIOD = 27.321661 * DAY;
-const EARTH_RADIUS_KM = 6371;
-const HUBBLE_ALTITUDE_KM = 483;
-const HUBBLE_RADIUS_KM = EARTH_RADIUS_KM + HUBBLE_ALTITUDE_KM;
 const HUBBLE_PERIOD = 95 * 60;
-const HUBBLE_INCLINATION = THREE.MathUtils.degToRad(28.5);
-const L2_FROM_EARTH_KM = 1_500_000;
 const WEBB_PERIOD = 168 * DAY;
-const ROMAN_PERIOD = 180 * DAY; // educational placeholder only; not mission ephemeris
-const BUILD = '20260830a';
+const ROMAN_PERIOD = 180 * DAY; // renderer placeholder only
+const EARTH_RADIUS_KM = 6371;
+const HUBBLE_RADIUS_KM = EARTH_RADIUS_KM + 483;
+const MOON_RADIUS_KM = 384400;
+const L2_KM = 1_500_000;
+const KM_PER_UNIT = 100_000;
+const HUBBLE_INC = THREE.MathUtils.degToRad(28.5);
+const MOON_INC = THREE.MathUtils.degToRad(5.145);
 
-const canvas = document.getElementById('scene');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+const $ = (id) => document.getElementById(id);
+const canvas = $('scene');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
-renderer.setClearColor(0x02040a, 1);
+renderer.setClearColor(0x03050a, 1);
 
 const scene = new THREE.Scene();
-scene.fog = new THREE.FogExp2(0x02040a, 0.0018);
+const camera = new THREE.PerspectiveCamera(38, 1, 0.001, 600);
+camera.position.set(4.5, 6.5, 30);
 
-const camera = new THREE.PerspectiveCamera(45, 1, 0.001, 1200);
-camera.position.set(0, 105, 215);
 const controls = new OrbitControls(camera, canvas);
 controls.enableDamping = true;
-controls.dampingFactor = 0.06;
-controls.target.set(0, 0, 0);
-controls.minDistance = 0.03;
-controls.maxDistance = 500;
+controls.dampingFactor = 0.065;
+controls.target.set(7, 0, 0);
+controls.minDistance = 0.08;
+controls.maxDistance = 120;
 
-scene.add(new THREE.AmbientLight(0x6f83a8, 1.25));
-const sunLight = new THREE.PointLight(0xffffff, 5.5, 400, 1.4);
+scene.add(new THREE.HemisphereLight(0x8ca6c9, 0x080a10, 1.25));
+const sunLight = new THREE.DirectionalLight(0xfff1d0, 4.2);
+sunLight.position.set(-20, 5, 2);
 scene.add(sunLight);
 
-function makeStars(count = 2200) {
-  const positions = new Float32Array(count * 3);
-  let seed = 0x30a2026;
+function stars(count = 1800) {
+  const g = new THREE.BufferGeometry();
+  const a = new Float32Array(count * 3);
+  let seed = 20260830;
   const rnd = () => ((seed = (1664525 * seed + 1013904223) >>> 0) / 4294967296);
   for (let i = 0; i < count; i++) {
-    const r = 250 + rnd() * 250;
-    const z = rnd() * 2 - 1;
-    const a = rnd() * Math.PI * 2;
-    const s = Math.sqrt(1 - z * z);
-    positions[i * 3] = r * s * Math.cos(a);
-    positions[i * 3 + 1] = r * z;
-    positions[i * 3 + 2] = r * s * Math.sin(a);
+    const r = 90 + rnd() * 150;
+    const u = rnd() * 2 - 1;
+    const p = rnd() * Math.PI * 2;
+    const q = Math.sqrt(1 - u * u);
+    a[i * 3] = r * q * Math.cos(p);
+    a[i * 3 + 1] = r * u;
+    a[i * 3 + 2] = r * q * Math.sin(p);
   }
-  const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-  const material = new THREE.PointsMaterial({ color: 0xaab7d1, size: 0.34, sizeAttenuation: true, transparent: true, opacity: 0.72 });
-  scene.add(new THREE.Points(geometry, material));
+  g.setAttribute('position', new THREE.BufferAttribute(a, 3));
+  scene.add(new THREE.Points(g, new THREE.PointsMaterial({ color: 0xaebed4, size: .075, transparent: true, opacity: .72 })));
 }
-makeStars();
+stars();
 
-function sphere(radius, color, emissive = 0x000000) {
-  const material = new THREE.MeshStandardMaterial({ color, emissive, emissiveIntensity: emissive ? 1.25 : 0, roughness: 0.72, metalness: 0.04 });
-  return new THREE.Mesh(new THREE.SphereGeometry(radius, 28, 18), material);
+function sphere(radius, color, roughness = .72) {
+  return new THREE.Mesh(new THREE.SphereGeometry(radius, 40, 24), new THREE.MeshStandardMaterial({ color, roughness, metalness: .03 }));
 }
 
-const sun = sphere(1.6, 0xffb52e, 0xff8a14);
-const earth = sphere(0.34, 0x3d86df);
-const moon = sphere(0.105, 0xbfc5ce);
-const l2Marker = sphere(0.075, 0x72d6ff, 0x245b7a);
-scene.add(sun, earth, moon, l2Marker);
-sunLight.position.copy(sun.position);
+const earth = sphere(.72, 0x2e6ca8, .78);
+const moon = sphere(.18, 0x9ca4ae, .9);
+scene.add(earth, moon);
 
-function line(color, opacity = 0.5) {
-  return new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color, transparent: true, opacity }));
+// atmosphere: restrained rim, not a cartoon glow
+const atmosphere = new THREE.Mesh(
+  new THREE.SphereGeometry(.745, 40, 24),
+  new THREE.MeshBasicMaterial({ color: 0x6fb6e8, transparent: true, opacity: .10, side: THREE.BackSide })
+);
+earth.add(atmosphere);
+
+const equator = new THREE.LineLoop(
+  new THREE.BufferGeometry().setFromPoints(Array.from({length:160},(_,i)=>{
+    const a=i/160*Math.PI*2; return new THREE.Vector3(Math.cos(a)*.755,0,Math.sin(a)*.755);
+  })),
+  new THREE.LineBasicMaterial({ color:0x6e8aa6, transparent:true, opacity:.13 })
+);
+earth.add(equator);
+
+function orbitLine(color, opacity=.35) {
+  return new THREE.LineLoop(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color, transparent:true, opacity }));
 }
-function lineLoop(color, opacity = 0.5) {
-  return new THREE.LineLoop(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color, transparent: true, opacity }));
+const moonTrail = orbitLine(0x718096,.16);
+const hubbleTrail = orbitLine(0xdcecff,.48);
+const webbTrail = orbitLine(0xefb45d,.48);
+const romanTrail = orbitLine(0xb88cff,.42);
+scene.add(moonTrail,hubbleTrail,webbTrail,romanTrail);
+
+// L2 is a reference, not a celestial body.
+const l2 = new THREE.Group();
+const l2Mat = new THREE.LineBasicMaterial({ color:0x86a6bd, transparent:true, opacity:.42 });
+const l2Cross = new THREE.BufferGeometry().setFromPoints([
+  new THREE.Vector3(-.18,0,0),new THREE.Vector3(.18,0,0),
+  new THREE.Vector3(0,-.18,0),new THREE.Vector3(0,.18,0),
+  new THREE.Vector3(0,0,-.18),new THREE.Vector3(0,0,.18)
+]);
+l2.add(new THREE.LineSegments(l2Cross,l2Mat));
+const ringPts=Array.from({length:80},(_,i)=>{const a=i/80*Math.PI*2;return new THREE.Vector3(0,Math.cos(a)*.30,Math.sin(a)*.30)});
+l2.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(ringPts),l2Mat));
+l2.position.x=L2_KM/KM_PER_UNIT;
+scene.add(l2);
+
+function spacecraft(url, fallbackColor, scale) {
+  const group = new THREE.Group();
+  const marker = new THREE.Mesh(new THREE.SphereGeometry(.035,16,10), new THREE.MeshBasicMaterial({color:fallbackColor}));
+  group.add(marker);
+  const sm = new THREE.SpriteMaterial({ transparent:true, depthWrite:false, alphaTest:.04 });
+  const sprite = new THREE.Sprite(sm);
+  sprite.scale.set(scale,scale,scale);
+  group.add(sprite);
+  new THREE.TextureLoader().load(url,t=>{t.colorSpace=THREE.SRGBColorSpace;sm.map=t;sm.needsUpdate=true;marker.visible=false;});
+  scene.add(group);
+  return {group,sprite,marker};
 }
+const craft={
+  hubble:spacecraft('./public/assets/spacecraft/hubble.png',0xdcecff,.95),
+  webb:spacecraft('./public/assets/spacecraft/jwst.png',0xefb45d,1.25),
+  roman:spacecraft('./public/assets/spacecraft/roman.png',0xb88cff,1.15),
+};
 
-const earthOrbit = lineLoop(0x345383, 0.35);
-const moonOrbit = lineLoop(0x64718c, 0.26);
-const hubbleOrbit = lineLoop(0xc9dbff, 0.52);
-const webbOrbit = lineLoop(0xffa648, 0.64);
-const romanOrbit = lineLoop(0xc47dff, 0.6);
-scene.add(earthOrbit, moonOrbit, hubbleOrbit, webbOrbit, romanOrbit);
+const sim={timeMs:Date.now(),playing:true,rate:DAY,view:'system',readable:true,last:performance.now(),focus:null};
 
-function circlePoints(radius, n = 256) {
-  const pts = [];
-  for (let i = 0; i < n; i++) {
-    const a = (i / n) * Math.PI * 2;
-    pts.push(new THREE.Vector3(Math.cos(a) * radius, 0, Math.sin(a) * radius));
+function loopPts(rx,ry,rz,phase=0,n=220){
+  const pts=[];
+  for(let i=0;i<n;i++){
+    const a=i/n*Math.PI*2+phase;
+    pts.push(new THREE.Vector3(L2_KM/KM_PER_UNIT + rx*Math.sin(2*a), ry*Math.cos(a), rz*Math.sin(a)));
   }
   return pts;
 }
-earthOrbit.geometry.setFromPoints(circlePoints(EARTH_ORBIT_KM / KM_PER_RENDER_UNIT));
+const webbPts=loopPts(1.9,5.5,4.2,0);
+const romanPts=loopPts(1.45,4.6,3.4,1.15);
+webbTrail.geometry.setFromPoints(webbPts);
+romanTrail.geometry.setFromPoints(romanPts);
 
-function makeSpacecraft(name, url, color) {
-  const group = new THREE.Group();
-  const marker = sphere(0.035, color, color);
-  group.add(marker);
-  const material = new THREE.SpriteMaterial({ transparent: true, depthWrite: false, alphaTest: 0.03 });
-  const sprite = new THREE.Sprite(material);
-  sprite.center.set(0.5, 0.5);
-  group.add(sprite);
-  new THREE.TextureLoader().load(url, (texture) => {
-    texture.colorSpace = THREE.SRGBColorSpace;
-    material.map = texture;
-    material.needsUpdate = true;
-  }, undefined, () => {
-    console.warn(`${name} texture failed to load; marker remains visible.`);
-  });
-  scene.add(group);
-  return { name, group, sprite, marker };
-}
-
-const spacecraft = {
-  hubble: makeSpacecraft('Hubble', './public/assets/spacecraft/hubble.png', 0xe2ecff),
-  webb: makeSpacecraft('Webb', './public/assets/spacecraft/jwst.png', 0xffa640),
-  roman: makeSpacecraft('Roman', './public/assets/spacecraft/roman.png', 0xc77dff),
-};
-
-const labelLayer = document.getElementById('labels');
-const labels = new Map();
-function addLabel(key, text) {
-  const el = document.createElement('div');
-  el.className = 'world-label';
-  el.textContent = text;
-  labelLayer.appendChild(el);
-  labels.set(key, el);
-}
-addLabel('sun', 'Sun');
-addLabel('earth', 'Earth');
-addLabel('moon', 'Moon');
-addLabel('l2', 'Sun–Earth L2');
-addLabel('hubble', 'Hubble');
-addLabel('webb', 'Webb');
-addLabel('roman', 'Roman');
-
-const sim = {
-  timeMs: Date.now(),
-  playing: true,
-  rate: 86400,
-  scale: 'educational',
-  view: 'solar',
-  lastRealMs: performance.now(),
-  lastTrackTarget: new THREE.Vector3(),
-};
-
-const tmp = {
-  earthKm: new THREE.Vector3(), moonKm: new THREE.Vector3(), l2Km: new THREE.Vector3(),
-  hubbleKm: new THREE.Vector3(), webbKm: new THREE.Vector3(), romanKm: new THREE.Vector3(),
-  radial: new THREE.Vector3(), tangent: new THREE.Vector3(), z: new THREE.Vector3(0, 1, 0),
-};
-
-function earthStateKm(tSec) {
-  const a = (tSec / YEAR) * Math.PI * 2;
-  return new THREE.Vector3(Math.cos(a) * EARTH_ORBIT_KM, 0, Math.sin(a) * EARTH_ORBIT_KM);
-}
-
-function earthBasis(earthKm) {
-  const radial = earthKm.clone().normalize();
-  const tangent = new THREE.Vector3(-radial.z, 0, radial.x).normalize();
-  return { radial, tangent, normal: new THREE.Vector3(0, 1, 0) };
-}
-
-function moonStateKm(tSec, earthKm) {
-  const a = (tSec / MOON_PERIOD) * Math.PI * 2;
-  const rel = new THREE.Vector3(Math.cos(a) * MOON_ORBIT_KM, 0, Math.sin(a) * MOON_ORBIT_KM);
-  rel.applyAxisAngle(new THREE.Vector3(1, 0, 0), THREE.MathUtils.degToRad(5.145));
-  return earthKm.clone().add(rel);
-}
-
-function hubbleStateKm(tSec, earthKm) {
-  const a = (tSec / HUBBLE_PERIOD) * Math.PI * 2;
-  const rel = new THREE.Vector3(Math.cos(a) * HUBBLE_RADIUS_KM, 0, Math.sin(a) * HUBBLE_RADIUS_KM);
-  rel.applyAxisAngle(new THREE.Vector3(1, 0, 0), HUBBLE_INCLINATION);
-  return earthKm.clone().add(rel);
-}
-
-function l2CenterKm(earthKm) {
-  return earthKm.clone().add(earthKm.clone().normalize().multiplyScalar(L2_FROM_EARTH_KM));
-}
-
-function webbStateKm(tSec, earthKm) {
-  const { radial, tangent, normal } = earthBasis(earthKm);
-  const a = (tSec / WEBB_PERIOD) * Math.PI * 2;
-  const center = l2CenterKm(earthKm);
-  return center
-    .add(radial.multiplyScalar(220_000 * Math.cos(a * 2)))
-    .add(tangent.multiplyScalar(620_000 * Math.cos(a)))
-    .add(normal.multiplyScalar(520_000 * Math.sin(a)));
-}
-
-function romanStateKm(tSec, earthKm) {
-  const { radial, tangent, normal } = earthBasis(earthKm);
-  const a = (tSec / ROMAN_PERIOD) * Math.PI * 2 + 1.25;
-  const center = l2CenterKm(earthKm);
-  return center
-    .add(radial.multiplyScalar(170_000 * Math.sin(a * 2)))
-    .add(tangent.multiplyScalar(500_000 * Math.cos(a)))
-    .add(normal.multiplyScalar(400_000 * Math.sin(a)));
-}
-
-function renderEarthPosition(earthKm) {
-  return earthKm.clone().multiplyScalar(1 / KM_PER_RENDER_UNIT);
-}
-
-function renderLocalPosition(bodyKm, earthKm, localScale) {
-  const base = renderEarthPosition(earthKm);
-  const rel = bodyKm.clone().sub(earthKm).multiplyScalar(localScale / KM_PER_RENDER_UNIT);
-  return base.add(rel);
-}
-
-function renderPosition(bodyKm, earthKm, type) {
-  if (sim.scale === 'true') return bodyKm.clone().multiplyScalar(1 / KM_PER_RENDER_UNIT);
-  if (type === 'hubble') return renderLocalPosition(bodyKm, earthKm, 120);
-  if (type === 'moon') return renderLocalPosition(bodyKm, earthKm, 2.6);
-  return bodyKm.clone().multiplyScalar(1 / KM_PER_RENDER_UNIT);
-}
-
-function setOrbitGeometry(lineObj, points) {
-  lineObj.geometry.dispose();
-  lineObj.geometry = new THREE.BufferGeometry().setFromPoints(points);
-}
-
-function updateLocalOrbits(tSec, earthKm) {
-  const earthR = renderEarthPosition(earthKm);
-  const moonScale = sim.scale === 'educational' ? 2.6 : 1;
-  const hubbleScale = sim.scale === 'educational' ? 120 : 1;
-  const moonR = (MOON_ORBIT_KM / KM_PER_RENDER_UNIT) * moonScale;
-  const hubbleR = (HUBBLE_RADIUS_KM / KM_PER_RENDER_UNIT) * hubbleScale;
-
-  const moonPts = circlePoints(moonR, 128).map((p) => p.applyAxisAngle(new THREE.Vector3(1, 0, 0), THREE.MathUtils.degToRad(5.145)).add(earthR));
-  const hubblePts = circlePoints(hubbleR, 128).map((p) => p.applyAxisAngle(new THREE.Vector3(1, 0, 0), HUBBLE_INCLINATION).add(earthR));
-  setOrbitGeometry(moonOrbit, moonPts);
-  setOrbitGeometry(hubbleOrbit, hubblePts);
-
-  const { radial, tangent, normal } = earthBasis(earthKm);
-  const center = l2CenterKm(earthKm);
-  const webbPts = [];
-  const romanPts = [];
-  for (let i = 0; i < 180; i++) {
-    const a = (i / 180) * Math.PI * 2;
-    const w = center.clone()
-      .add(radial.clone().multiplyScalar(220_000 * Math.cos(a * 2)))
-      .add(tangent.clone().multiplyScalar(620_000 * Math.cos(a)))
-      .add(normal.clone().multiplyScalar(520_000 * Math.sin(a)))
-      .multiplyScalar(1 / KM_PER_RENDER_UNIT);
-    const r = center.clone()
-      .add(radial.clone().multiplyScalar(170_000 * Math.sin(a * 2)))
-      .add(tangent.clone().multiplyScalar(500_000 * Math.cos(a)))
-      .add(normal.clone().multiplyScalar(400_000 * Math.sin(a)))
-      .multiplyScalar(1 / KM_PER_RENDER_UNIT);
-    webbPts.push(w); romanPts.push(r);
+function localCircle(radius,inc,n=180){
+  const pts=[];
+  for(let i=0;i<n;i++){
+    const a=i/n*Math.PI*2;
+    const p=new THREE.Vector3(Math.cos(a)*radius,0,Math.sin(a)*radius);
+    p.applyAxisAngle(new THREE.Vector3(1,0,0),inc); pts.push(p);
   }
-  setOrbitGeometry(webbOrbit, webbPts);
-  setOrbitGeometry(romanOrbit, romanPts);
+  return pts;
 }
 
-let orbitRefreshKey = '';
-function refreshOrbitGeometry(tSec, earthKm) {
-  const dayKey = `${Math.floor(tSec / DAY)}:${sim.scale}`;
-  if (dayKey === orbitRefreshKey) return;
-  orbitRefreshKey = dayKey;
-  updateLocalOrbits(tSec, earthKm);
+function refreshLocalGeometry(){
+  const moonR=(MOON_RADIUS_KM/KM_PER_UNIT)*(sim.readable?1.45:1);
+  const hPhysical=HUBBLE_RADIUS_KM/KM_PER_UNIT;
+  const hR=sim.readable?1.05:hPhysical;
+  moonTrail.geometry.dispose(); moonTrail.geometry=new THREE.BufferGeometry().setFromPoints(localCircle(moonR,MOON_INC));
+  hubbleTrail.geometry.dispose(); hubbleTrail.geometry=new THREE.BufferGeometry().setFromPoints(localCircle(hR,HUBBLE_INC));
+}
+refreshLocalGeometry();
+
+function state(){
+  const t=sim.timeMs/1000;
+  const moonA=t/MOON_PERIOD*Math.PI*2;
+  const moonR=(MOON_RADIUS_KM/KM_PER_UNIT)*(sim.readable?1.45:1);
+  moon.position.set(Math.cos(moonA)*moonR,0,Math.sin(moonA)*moonR).applyAxisAngle(new THREE.Vector3(1,0,0),MOON_INC);
+
+  const hA=t/HUBBLE_PERIOD*Math.PI*2;
+  const hR=sim.readable?1.05:HUBBLE_RADIUS_KM/KM_PER_UNIT;
+  craft.hubble.group.position.set(Math.cos(hA)*hR,0,Math.sin(hA)*hR).applyAxisAngle(new THREE.Vector3(1,0,0),HUBBLE_INC);
+
+  const wA=(t/WEBB_PERIOD*Math.PI*2)%(Math.PI*2);
+  craft.webb.group.position.set(
+    L2_KM/KM_PER_UNIT+1.9*Math.sin(2*wA),
+    5.5*Math.cos(wA),
+    4.2*Math.sin(wA)
+  );
+  const rA=(t/ROMAN_PERIOD*Math.PI*2+1.15)%(Math.PI*2);
+  craft.roman.group.position.set(
+    L2_KM/KM_PER_UNIT+1.45*Math.sin(2*rA),
+    4.6*Math.cos(rA),
+    3.4*Math.sin(rA)
+  );
+
+  const localVisible=sim.view==='earth'||sim.view==='system'||sim.focus==='hubble';
+  moon.visible=localVisible; moonTrail.visible=localVisible&&$('trailToggle').checked;
+  hubbleTrail.visible=localVisible&&$('trailToggle').checked;
+  webbTrail.visible=$('trailToggle').checked; romanTrail.visible=$('trailToggle').checked;
 }
 
-function updatePhysics() {
-  const tSec = sim.timeMs / 1000;
-  tmp.earthKm.copy(earthStateKm(tSec));
-  tmp.moonKm.copy(moonStateKm(tSec, tmp.earthKm));
-  tmp.l2Km.copy(l2CenterKm(tmp.earthKm));
-  tmp.hubbleKm.copy(hubbleStateKm(tSec, tmp.earthKm));
-  tmp.webbKm.copy(webbStateKm(tSec, tmp.earthKm));
-  tmp.romanKm.copy(romanStateKm(tSec, tmp.earthKm));
+const VIEWS={
+  system:{pos:[2.8,7.2,31],target:[7.2,0,0],title:'Earth → Sun–Earth L2',blurb:'One rotating-frame overview: Earth at left, the L2 region roughly 1.5 million km anti-sunward, with Hubble compressed near Earth.'},
+  earth:{pos:[3.4,2.4,5.7],target:[0,0,0],title:'Earth / Hubble',blurb:'Hubble circles only a few hundred kilometres above Earth. Readable scale enlarges that separation without changing the underlying reference values.'},
+  l2:{pos:[24,10,19],target:[15,0,0],title:'Sun–Earth L2 region',blurb:'Webb and Roman trace large three-dimensional paths around the L2 region. Current curves are explicitly educational placeholders.'},
+  free:{pos:null,target:null,title:'Free camera',blurb:'Inspect the Earth–L2 geometry directly. Drag to orbit, pinch or scroll to zoom.'}
+};
 
-  sun.position.set(0, 0, 0);
-  earth.position.copy(renderEarthPosition(tmp.earthKm));
-  moon.position.copy(renderPosition(tmp.moonKm, tmp.earthKm, 'moon'));
-  l2Marker.position.copy(tmp.l2Km).multiplyScalar(1 / KM_PER_RENDER_UNIT);
-  spacecraft.hubble.group.position.copy(renderPosition(tmp.hubbleKm, tmp.earthKm, 'hubble'));
-  spacecraft.webb.group.position.copy(tmp.webbKm).multiplyScalar(1 / KM_PER_RENDER_UNIT);
-  spacecraft.roman.group.position.copy(tmp.romanKm).multiplyScalar(1 / KM_PER_RENDER_UNIT);
-  refreshOrbitGeometry(tSec, tmp.earthKm);
+function setView(name,focus=null){
+  sim.view=name; sim.focus=focus;
+  document.querySelectorAll('[data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===name));
+  const v=VIEWS[name];
+  $('viewTitle').textContent=v.title; $('viewBlurb').textContent=v.blurb;
+  if(v.pos){camera.position.set(...v.pos);controls.target.set(...v.target);controls.update();}
 }
 
-function resize() {
-  const rect = canvas.getBoundingClientRect();
-  const width = Math.max(1, Math.round(rect.width));
-  const height = Math.max(1, Math.round(rect.height));
-  const pixelWidth = Math.round(width * renderer.getPixelRatio());
-  const pixelHeight = Math.round(height * renderer.getPixelRatio());
-  if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) renderer.setSize(width, height, false);
-  camera.aspect = width / height;
-  camera.updateProjectionMatrix();
+function focusCraft(name){
+  sim.focus=name;
+  const info={
+    hubble:['Hubble Space Telescope','PROPAGATED','Low-Earth orbit · ~483 km altitude · 28.5° inclination · ~95 min period. Current phase is illustrative until TLE/SGP4 is connected.'],
+    webb:['James Webb Space Telescope','EDUCATIONAL','Sun–Earth L2 region. The displayed loop is a visual placeholder; authoritative JWST ephemeris will replace it.'],
+    roman:['Nancy Grace Roman Space Telescope','EDUCATIONAL','Sun–Earth L2 region. The displayed loop is a visual placeholder while Roman trajectory products are integrated.']
+  }[name];
+  $('focusName').textContent=info[0]; $('focusMode').textContent=info[1]; $('focusInfo').textContent=info[2]; $('focusCard').hidden=false;
+  if(name==='hubble') setView('earth',name); else setView('l2',name);
 }
 
-function labelPosition(el, obj) {
-  const p = obj.position.clone().project(camera);
-  const rect = canvas.getBoundingClientRect();
-  const visible = p.z > -1 && p.z < 1 && p.x > -1.15 && p.x < 1.15 && p.y > -1.15 && p.y < 1.15;
-  el.style.display = visible ? 'block' : 'none';
-  if (!visible) return;
-  el.style.left = `${(p.x * 0.5 + 0.5) * rect.width}px`;
-  el.style.top = `${(-p.y * 0.5 + 0.5) * rect.height}px`;
+function followTarget(){
+  if(!sim.focus)return;
+  const p=craft[sim.focus].group.position;
+  const dist=sim.focus==='hubble'?2.8:7.5;
+  const desired=p.clone().add(new THREE.Vector3(dist*.55,dist*.38,dist));
+  camera.position.lerp(desired,.055); controls.target.lerp(p,.085);
 }
 
-function updateLabels() {
-  labelPosition(labels.get('sun'), sun);
-  labelPosition(labels.get('earth'), earth);
-  labelPosition(labels.get('moon'), moon);
-  labelPosition(labels.get('l2'), l2Marker);
-  labelPosition(labels.get('hubble'), spacecraft.hubble.group);
-  labelPosition(labels.get('webb'), spacecraft.webb.group);
-  labelPosition(labels.get('roman'), spacecraft.roman.group);
+function resize(){
+  const w=innerWidth,h=innerHeight;
+  const pr=renderer.getPixelRatio();
+  if(canvas.width!==Math.round(w*pr)||canvas.height!==Math.round(h*pr))renderer.setSize(w,h,false);
+  camera.aspect=w/h;camera.updateProjectionMatrix();
 }
 
-function updateSpriteScales() {
-  for (const craft of Object.values(spacecraft)) {
-    const distance = camera.position.distanceTo(craft.group.position);
-    const size = THREE.MathUtils.clamp(distance * 0.045, 0.16, 3.2);
-    craft.sprite.scale.set(size * 1.25, size, 1);
-    craft.marker.scale.setScalar(THREE.MathUtils.clamp(size * 0.16, 0.45, 1.8));
-  }
-}
-
-function viewTarget(name) {
-  if (name === 'earth') return earth.position.clone();
-  if (name === 'webb') return spacecraft.webb.group.position.clone();
-  if (name === 'roman') return spacecraft.roman.group.position.clone();
-  if (name === 'hubble') return spacecraft.hubble.group.position.clone();
-  return new THREE.Vector3(0, 0, 0);
-}
-
-function activateView(name) {
-  sim.view = name;
-  document.querySelectorAll('[data-view]').forEach((b) => b.classList.toggle('active', b.dataset.view === name));
-  const target = viewTarget(name);
-  controls.target.copy(target);
-  if (name === 'solar') camera.position.copy(target).add(new THREE.Vector3(0, 105, 215));
-  if (name === 'earth') camera.position.copy(target).add(new THREE.Vector3(0, 3.4, 7.2));
-  if (name === 'webb' || name === 'roman') camera.position.copy(target).add(new THREE.Vector3(0.7, 1.4, 2.8));
-  if (name === 'hubble') camera.position.copy(target).add(new THREE.Vector3(0.8, 1.5, 3.0));
-  sim.lastTrackTarget.copy(target);
-  controls.update();
-}
-
-function trackView() {
-  if (sim.view === 'free' || sim.view === 'solar') return;
-  const target = viewTarget(sim.view);
-  const delta = target.clone().sub(sim.lastTrackTarget);
-  camera.position.add(delta);
-  controls.target.add(delta);
-  sim.lastTrackTarget.copy(target);
-}
-
-document.querySelectorAll('[data-view]').forEach((button) => button.addEventListener('click', () => activateView(button.dataset.view)));
-
-const playBtn = document.getElementById('playBtn');
-const nowBtn = document.getElementById('nowBtn');
-const rateSelect = document.getElementById('rateSelect');
-const scaleSelect = document.getElementById('scaleSelect');
-const utcReadout = document.getElementById('utcReadout');
-
-playBtn.addEventListener('click', () => {
-  sim.playing = !sim.playing;
-  playBtn.textContent = sim.playing ? 'Pause' : 'Play';
-});
-nowBtn.addEventListener('click', () => {
-  sim.timeMs = Date.now();
-  sim.lastRealMs = performance.now();
-});
-rateSelect.addEventListener('change', () => { sim.rate = Number(rateSelect.value) || 1; });
-scaleSelect.addEventListener('change', () => {
-  sim.scale = scaleSelect.value;
-  orbitRefreshKey = '';
-  updatePhysics();
-  if (sim.view === 'earth' || sim.view === 'hubble') activateView(sim.view);
-});
-
-function tick(now) {
-  const dtReal = Math.min(0.2, Math.max(0, (now - sim.lastRealMs) / 1000));
-  sim.lastRealMs = now;
-  if (sim.playing) sim.timeMs += dtReal * sim.rate * 1000;
-  updatePhysics();
-  trackView();
-  resize();
-  updateSpriteScales();
-  controls.update();
-  renderer.render(scene, camera);
-  updateLabels();
-  utcReadout.textContent = `${new Date(sim.timeMs).toISOString().replace('.000Z', 'Z')}  ·  ${BUILD}`;
+function tick(now){
+  const dt=Math.min(.1,(now-sim.last)/1000);sim.last=now;
+  if(sim.playing)sim.timeMs+=dt*sim.rate*1000;
+  resize(); state(); followTarget(); controls.update();
+  earth.rotation.y+=dt*.018;
+  renderer.render(scene,camera);
+  $('utcReadout').textContent=new Date(sim.timeMs).toISOString().replace('T',' ').replace('.000Z','Z');
   requestAnimationFrame(tick);
 }
 
-updatePhysics();
-activateView('solar');
+$('playBtn').addEventListener('click',()=>{sim.playing=!sim.playing;$('playBtn').textContent=sim.playing?'Pause':'Play';});
+$('nowBtn').addEventListener('click',()=>{sim.timeMs=Date.now();});
+$('rateSelect').addEventListener('change',e=>{sim.rate=Number(e.target.value)||1;});
+$('scaleToggle').addEventListener('change',e=>{sim.readable=e.target.checked;refreshLocalGeometry();});
+$('trailToggle').addEventListener('change',()=>state());
+document.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>{sim.focus=null;$('focusCard').hidden=true;setView(b.dataset.view);}));
+document.querySelectorAll('[data-focus]').forEach(b=>b.addEventListener('click',()=>focusCraft(b.dataset.focus)));
+$('closeFocus').addEventListener('click',()=>{sim.focus=null;$('focusCard').hidden=true;});
+
+setView('system');
 requestAnimationFrame(tick);
