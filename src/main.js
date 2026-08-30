@@ -14,6 +14,7 @@ const MOON_ORBIT_KM = 384_400;
 const L2_KM = 1_500_000;
 const KM_PER_LOCAL_UNIT = 100_000;
 const AU_RENDER = 22;
+const L2_HELIO_OFFSET = AU_RENDER * (L2_KM / EARTH_ORBIT_KM);
 const TRUE_HELIO_LOCAL_SCALE = (AU_RENDER / EARTH_ORBIT_KM) * KM_PER_LOCAL_UNIT;
 const READABLE_HELIO_LOCAL_SCALE = 0.055;
 const HUBBLE_INC = THREE.MathUtils.degToRad(28.5);
@@ -30,12 +31,9 @@ renderer.setClearColor(0x03050a, 1);
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(38, 1, 0.001, 800);
-camera.position.set(3, 7, 31);
-
 const controls = new OrbitControls(camera, canvas);
 controls.enableDamping = true;
 controls.dampingFactor = 0.065;
-controls.target.set(7, 0, 0);
 controls.minDistance = 0.06;
 controls.maxDistance = 180;
 
@@ -72,9 +70,21 @@ function sphere(radius, color, roughness = 0.72, emissive = 0x000000) {
   );
 }
 
-// Everything tied to Earth lives in one local frame whose +X direction is anti-sunward.
-// In the Earth–L2 view the group is fixed. In heliocentric view this SAME state is
-// translated and rotated around the Sun; no second trajectory is integrated.
+function circle(radius, color, opacity = 0.3, n = 320) {
+  return new THREE.LineLoop(
+    new THREE.BufferGeometry().setFromPoints(Array.from({ length: n }, (_, i) => {
+      const a = (i / n) * Math.PI * 2;
+      return new THREE.Vector3(Math.cos(a) * radius, 0, Math.sin(a) * radius);
+    })),
+    new THREE.LineBasicMaterial({ color, transparent: true, opacity }),
+  );
+}
+
+function orbitLine(color, opacity = 0.35) {
+  return new THREE.LineLoop(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color, transparent: true, opacity }));
+}
+
+// +X is the anti-solar direction. Everything in this group is one Earth-local state.
 const earthSystem = new THREE.Group();
 scene.add(earthSystem);
 
@@ -88,40 +98,64 @@ const atmosphere = new THREE.Mesh(
 );
 earth.add(atmosphere);
 
-const equator = new THREE.LineLoop(
-  new THREE.BufferGeometry().setFromPoints(Array.from({ length: 160 }, (_, i) => {
-    const a = (i / 160) * Math.PI * 2;
-    return new THREE.Vector3(Math.cos(a) * 0.755, 0, Math.sin(a) * 0.755);
-  })),
-  new THREE.LineBasicMaterial({ color: 0x6e8aa6, transparent: true, opacity: 0.13 }),
-);
+const equator = circle(0.755, 0x6e8aa6, 0.13, 160);
 earth.add(equator);
 
-function orbitLine(color, opacity = 0.35) {
-  return new THREE.LineLoop(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color, transparent: true, opacity }));
-}
 const moonTrail = orbitLine(0x718096, 0.16);
 const hubbleTrail = orbitLine(0xdcecff, 0.48);
-const webbTrail = orbitLine(0xefb45d, 0.48);
-const romanTrail = orbitLine(0xb88cff, 0.42);
+const webbTrail = orbitLine(0xefb45d, 0.50);
+const romanTrail = orbitLine(0xb88cff, 0.44);
 earthSystem.add(moonTrail, hubbleTrail, webbTrail, romanTrail);
 
-// L2 is a reference marker, not a body.
+// Earth -> L2 geometry. This is a measurement/reference layer, not an orbit.
+const geometryLayer = new THREE.Group();
+earthSystem.add(geometryLayer);
+const axisMat = new THREE.LineBasicMaterial({ color: 0x7892a9, transparent: true, opacity: 0.28 });
+const axis = new THREE.Line(
+  new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0.85, 0, 0), new THREE.Vector3(L2_KM / KM_PER_LOCAL_UNIT, 0, 0)]),
+  axisMat,
+);
+geometryLayer.add(axis);
+for (const x of [5, 10, 15]) {
+  geometryLayer.add(new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(x, -0.12, 0), new THREE.Vector3(x, 0.12, 0)]),
+    new THREE.LineBasicMaterial({ color: 0x7892a9, transparent: true, opacity: x === 15 ? 0.38 : 0.20 }),
+  ));
+}
+
+// L2 is a reference marker, not a celestial body.
 const l2 = new THREE.Group();
-const l2Mat = new THREE.LineBasicMaterial({ color: 0x86a6bd, transparent: true, opacity: 0.36 });
-const l2Cross = new THREE.BufferGeometry().setFromPoints([
-  new THREE.Vector3(-0.18, 0, 0), new THREE.Vector3(0.18, 0, 0),
-  new THREE.Vector3(0, -0.18, 0), new THREE.Vector3(0, 0.18, 0),
-  new THREE.Vector3(0, 0, -0.18), new THREE.Vector3(0, 0, 0.18),
-]);
-l2.add(new THREE.LineSegments(l2Cross, l2Mat));
-const ringPts = Array.from({ length: 80 }, (_, i) => {
-  const a = (i / 80) * Math.PI * 2;
-  return new THREE.Vector3(0, Math.cos(a) * 0.30, Math.sin(a) * 0.30);
-});
-l2.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(ringPts), l2Mat));
+const l2Mat = new THREE.LineBasicMaterial({ color: 0x86a6bd, transparent: true, opacity: 0.38 });
+l2.add(new THREE.LineSegments(
+  new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(-0.18, 0, 0), new THREE.Vector3(0.18, 0, 0),
+    new THREE.Vector3(0, -0.18, 0), new THREE.Vector3(0, 0.18, 0),
+    new THREE.Vector3(0, 0, -0.18), new THREE.Vector3(0, 0, 0.18),
+  ]), l2Mat,
+));
+l2.add(new THREE.LineLoop(
+  new THREE.BufferGeometry().setFromPoints(Array.from({ length: 80 }, (_, i) => {
+    const a = (i / 80) * Math.PI * 2;
+    return new THREE.Vector3(0, Math.cos(a) * 0.30, Math.sin(a) * 0.30);
+  })), l2Mat,
+));
 l2.position.x = L2_KM / KM_PER_LOCAL_UNIT;
 earthSystem.add(l2);
+
+// The Y-Z plane through L2 makes the out-of-ecliptic extent of halo-like paths legible.
+const haloPlane = new THREE.Mesh(
+  new THREE.PlaneGeometry(12, 10),
+  new THREE.MeshBasicMaterial({ color: 0x7899b4, transparent: true, opacity: 0.035, side: THREE.DoubleSide, depthWrite: false }),
+);
+haloPlane.rotation.y = Math.PI / 2;
+haloPlane.position.x = L2_KM / KM_PER_LOCAL_UNIT;
+earthSystem.add(haloPlane);
+const haloGrid = new THREE.GridHelper(10, 10, 0x6f89a0, 0x526778);
+haloGrid.rotation.z = Math.PI / 2;
+haloGrid.position.x = L2_KM / KM_PER_LOCAL_UNIT;
+haloGrid.material.transparent = true;
+haloGrid.material.opacity = 0.08;
+earthSystem.add(haloGrid);
 
 function spacecraft(url, fallbackColor, scale) {
   const group = new THREE.Group();
@@ -147,19 +181,16 @@ const craft = {
   roman: spacecraft('./public/assets/spacecraft/roman.png', 0xb88cff, 1.15),
 };
 
-// Heliocentric reference objects.
+// Heliocentric references. L2's guide orbit is deliberately shown just outside
+// Earth's orbit: at every date it stays on the anti-solar continuation of Sun -> Earth.
 const sun = sphere(1.15, 0xffbf47, 0.82, 0xff8f1f);
 scene.add(sun);
-const earthOrbit = new THREE.LineLoop(
-  new THREE.BufferGeometry().setFromPoints(Array.from({ length: 360 }, (_, i) => {
-    const a = (i / 360) * Math.PI * 2;
-    return new THREE.Vector3(Math.cos(a) * AU_RENDER, 0, Math.sin(a) * AU_RENDER);
-  })),
-  new THREE.LineBasicMaterial({ color: 0x38516f, transparent: true, opacity: 0.30 }),
-);
-scene.add(earthOrbit);
+const earthOrbit = circle(AU_RENDER, 0x38516f, 0.32, 360);
+const l2GuideOrbit = circle(AU_RENDER + L2_HELIO_OFFSET, 0x597086, 0.16, 360);
+scene.add(earthOrbit, l2GuideOrbit);
 sun.visible = false;
 earthOrbit.visible = false;
+l2GuideOrbit.visible = false;
 
 function loopPts(rx, ry, rz, phase = 0, n = 220) {
   const pts = [];
@@ -173,31 +204,22 @@ webbTrail.geometry.setFromPoints(loopPts(1.9, 5.5, 4.2));
 romanTrail.geometry.setFromPoints(loopPts(1.45, 4.6, 3.4, 1.15));
 
 function localCircle(radius, inc, n = 180) {
-  const pts = [];
-  for (let i = 0; i < n; i++) {
+  return Array.from({ length: n }, (_, i) => {
     const a = (i / n) * Math.PI * 2;
-    const p = new THREE.Vector3(Math.cos(a) * radius, 0, Math.sin(a) * radius);
-    p.applyAxisAngle(new THREE.Vector3(1, 0, 0), inc);
-    pts.push(p);
-  }
-  return pts;
+    return new THREE.Vector3(Math.cos(a) * radius, 0, Math.sin(a) * radius)
+      .applyAxisAngle(new THREE.Vector3(1, 0, 0), inc);
+  });
 }
 
 const sim = {
-  timeMs: Date.now(),
-  playing: true,
-  rate: 600,
-  view: 'system',
-  frame: 'rotating',
-  readable: true,
-  last: performance.now(),
-  focus: null,
+  timeMs: Date.now(), playing: true, rate: 600,
+  view: 'system', frame: 'rotating', readable: true,
+  last: performance.now(), focus: null,
 };
 
 function refreshLocalGeometry() {
   const moonR = (MOON_ORBIT_KM / KM_PER_LOCAL_UNIT) * (sim.readable ? 1.45 : 1);
-  const hubblePhysical = HUBBLE_RADIUS_KM / KM_PER_LOCAL_UNIT;
-  const hubbleR = sim.readable ? 1.05 : hubblePhysical;
+  const hubbleR = sim.readable ? 1.05 : HUBBLE_RADIUS_KM / KM_PER_LOCAL_UNIT;
   moonTrail.geometry.dispose();
   moonTrail.geometry = new THREE.BufferGeometry().setFromPoints(localCircle(moonR, MOON_INC));
   hubbleTrail.geometry.dispose();
@@ -220,15 +242,12 @@ function updateLocalState() {
   const webbA = (t / WEBB_PERIOD) * Math.PI * 2;
   craft.webb.group.position.set(
     L2_KM / KM_PER_LOCAL_UNIT + 1.9 * Math.sin(2 * webbA),
-    5.5 * Math.cos(webbA),
-    4.2 * Math.sin(webbA),
+    5.5 * Math.cos(webbA), 4.2 * Math.sin(webbA),
   );
-
   const romanA = (t / ROMAN_PERIOD) * Math.PI * 2 + 1.15;
   craft.roman.group.position.set(
     L2_KM / KM_PER_LOCAL_UNIT + 1.45 * Math.sin(2 * romanA),
-    4.6 * Math.cos(romanA),
-    3.4 * Math.sin(romanA),
+    4.6 * Math.cos(romanA), 3.4 * Math.sin(romanA),
   );
 }
 
@@ -236,42 +255,48 @@ function applyReferenceFrame() {
   const helio = sim.frame === 'heliocentric';
   sun.visible = helio;
   earthOrbit.visible = helio;
+  l2GuideOrbit.visible = helio;
   $('sunDirection').hidden = helio;
+  $('geometryReadout').hidden = helio || sim.view === 'earth';
 
   if (helio) {
-    const t = sim.timeMs / 1000;
-    const theta = (t / YEAR) * Math.PI * 2;
+    const theta = ((sim.timeMs / 1000) / YEAR) * Math.PI * 2;
     earthSystem.position.set(Math.cos(theta) * AU_RENDER, 0, Math.sin(theta) * AU_RENDER);
+    // local +X stays anti-solar (radially outward from the Sun)
     earthSystem.rotation.set(0, -theta, 0);
     const localScale = sim.readable ? READABLE_HELIO_LOCAL_SCALE : TRUE_HELIO_LOCAL_SCALE;
     earthSystem.scale.setScalar(localScale);
 
-    // Minimum visual sizes only. Positions remain in the shared frame above.
     earth.scale.setScalar(0.14 / (0.72 * localScale));
     craft.webb.sprite.scale.setScalar(0.30 / localScale);
     craft.roman.sprite.scale.setScalar(0.28 / localScale);
     craft.hubble.group.visible = false;
-    hubbleTrail.visible = false;
     moon.visible = false;
     moonTrail.visible = false;
+    hubbleTrail.visible = false;
     l2.scale.setScalar(0.22 / localScale);
+    geometryLayer.visible = false;
+    haloPlane.visible = false;
+    haloGrid.visible = false;
   } else {
     earthSystem.position.set(0, 0, 0);
     earthSystem.rotation.set(0, 0, 0);
     earthSystem.scale.setScalar(1);
     earth.scale.setScalar(1);
+    craft.hubble.group.visible = true;
+    craft.hubble.sprite.scale.setScalar(craft.hubble.baseScale);
     craft.webb.sprite.scale.setScalar(craft.webb.baseScale);
     craft.roman.sprite.scale.setScalar(craft.roman.baseScale);
-    craft.hubble.sprite.scale.setScalar(craft.hubble.baseScale);
-    craft.hubble.group.visible = true;
     l2.scale.setScalar(1);
 
     const localVisible = sim.view === 'earth' || sim.view === 'system' || sim.focus === 'hubble';
     moon.visible = localVisible;
     moonTrail.visible = localVisible && $('trailToggle').checked;
     hubbleTrail.visible = localVisible && $('trailToggle').checked;
+    geometryLayer.visible = sim.view === 'system' || sim.view === 'free';
+    haloPlane.visible = sim.view === 'l2';
+    haloGrid.visible = sim.view === 'l2';
   }
-
   webbTrail.visible = $('trailToggle').checked;
   romanTrail.visible = $('trailToggle').checked;
 }
@@ -280,31 +305,31 @@ const VIEWS = {
   system: {
     frame: 'rotating', pos: [2.8, 7.2, 31], target: [7.2, 0, 0],
     title: 'Earth–L2 rotating frame',
-    blurb: 'Earth and the Sun–Earth L2 direction remain fixed while the observatories move around them.',
+    blurb: 'Earth is fixed at the origin; +X points anti-sunward to L2, about 1.5 million km away.',
     readout: 'EARTH–L2 ROTATING',
   },
   earth: {
     frame: 'rotating', pos: [3.4, 2.4, 5.7], target: [0, 0, 0],
     title: 'Earth / Hubble',
-    blurb: 'A close Earth-centred view for Hubble. Readable scale enlarges the few-hundred-kilometre orbital separation.',
+    blurb: 'A close Earth-centred view. Readable scale enlarges Hubble’s few-hundred-kilometre separation.',
     readout: 'EARTH-CENTRED · ROTATING DISPLAY',
   },
   l2: {
     frame: 'rotating', pos: [24, 10, 19], target: [15, 0, 0],
     title: 'Sun–Earth L2 close-up',
-    blurb: 'A rotating-frame close-up of the large three-dimensional Webb and Roman paths around the L2 region.',
+    blurb: 'The faint reference plane passes through L2 and makes the out-of-ecliptic extent of the paths visible.',
     readout: 'EARTH–L2 ROTATING · CLOSE-UP',
   },
   helio: {
-    frame: 'heliocentric', pos: [0, 29, 35], target: [0, 0, 0],
+    frame: 'heliocentric', pos: [0, 30, 36], target: [0, 0, 0],
     title: 'Heliocentric view',
-    blurb: 'The Sun is fixed while Earth carries the L2 region, Webb and Roman around its annual orbit.',
+    blurb: 'The Sun is fixed. Earth carries L2 radially outward on the anti-solar side during its one-year orbit.',
     readout: 'HELIOCENTRIC INERTIAL DISPLAY',
   },
   free: {
     frame: 'rotating', pos: null, target: null,
     title: 'Free camera',
-    blurb: 'Inspect the Earth–L2 rotating geometry directly. Drag to orbit; pinch or scroll to zoom.',
+    blurb: 'Inspect the Earth–L2 rotating geometry directly.',
     readout: 'EARTH–L2 ROTATING · FREE CAMERA',
   },
 };
@@ -328,9 +353,9 @@ function setView(name, focus = null) {
 
 function focusCraft(name) {
   const info = {
-    hubble: ['Hubble Space Telescope', 'PROPAGATED', 'LEO · ~483 km altitude · 28.5° inclination · ~95 min period. Current phase remains illustrative until TLE/SGP4 is connected.'],
-    webb: ['James Webb Space Telescope', 'EDUCATIONAL', 'Sun–Earth L2 region. The displayed loop is a renderer placeholder until authoritative JWST ephemeris replaces it.'],
-    roman: ['Nancy Grace Roman Space Telescope', 'EDUCATIONAL', 'Sun–Earth L2 region. The displayed loop remains a placeholder while official Roman trajectory products are integrated.'],
+    hubble: ['Hubble Space Telescope', 'PROPAGATED', 'LEO · ~483 km altitude · 28.5° inclination · ~95 min period. Phase remains illustrative until TLE/SGP4 is connected.'],
+    webb: ['James Webb Space Telescope', 'EDUCATIONAL', 'Sun–Earth L2 region. This loop is still a renderer placeholder until authoritative JWST ephemeris replaces it.'],
+    roman: ['Nancy Grace Roman Space Telescope', 'EDUCATIONAL', 'Sun–Earth L2 region. This loop remains a placeholder while official Roman trajectory products are integrated.'],
   }[name];
   $('focusName').textContent = info[0];
   $('focusMode').textContent = info[1];
@@ -344,34 +369,29 @@ function followTarget() {
   if (!sim.focus || sim.frame === 'heliocentric') return;
   const p = craft[sim.focus].group.position;
   const dist = sim.focus === 'hubble' ? 2.8 : 7.5;
-  const desired = p.clone().add(new THREE.Vector3(dist * 0.55, dist * 0.38, dist));
-  camera.position.lerp(desired, 0.055);
+  camera.position.lerp(p.clone().add(new THREE.Vector3(dist * 0.55, dist * 0.38, dist)), 0.055);
   controls.target.lerp(p, 0.085);
 }
 
 function sliderToRate(value) {
   return 10 ** ((Number(value) / 1000) * LOG_RATE_MAX);
 }
-
 function rateToSlider(rate) {
   return Math.round((Math.log10(Math.max(1, rate)) / LOG_RATE_MAX) * 1000);
 }
-
 function formatRate(rate) {
   if (rate < 120) return rate < 10 ? `${rate.toFixed(1)}×` : `${Math.round(rate)}×`;
   if (rate < 3600) return `${(rate / 60).toFixed(rate < 600 ? 1 : 0)} min/s`;
   if (rate < DAY) return `${(rate / 3600).toFixed(rate < 18000 ? 1 : 0)} h/s`;
   return `${(rate / DAY).toFixed(rate < 5 * DAY ? 1 : 0)} d/s`;
 }
-
 function setRateFromSlider() {
   sim.rate = sliderToRate($('rateSlider').value);
   $('rateReadout').textContent = formatRate(sim.rate);
 }
 
 function resize() {
-  const w = innerWidth;
-  const h = innerHeight;
+  const w = innerWidth, h = innerHeight;
   const pr = renderer.getPixelRatio();
   if (canvas.width !== Math.round(w * pr) || canvas.height !== Math.round(h * pr)) renderer.setSize(w, h, false);
   camera.aspect = w / h;
@@ -382,7 +402,6 @@ function tick(now) {
   const dt = Math.min(0.1, (now - sim.last) / 1000);
   sim.last = now;
   if (sim.playing) sim.timeMs += dt * sim.rate * 1000;
-
   resize();
   updateLocalState();
   applyReferenceFrame();
