@@ -20,7 +20,7 @@ Required outputs:
 - Earth-fixed sub-satellite point
 - altitude
 - orbital period estimate
-- sunlight / Earth-shadow state (later milestone)
+- sunlight / Earth-shadow state
 - ground track (later milestone)
 
 Published NASA reference values for sanity checking:
@@ -48,6 +48,7 @@ Sanity checks:
 - L2 distance from Earth: about 1.5 million km
 - Webb does not sit on L2
 - Webb orbit period around L2 region: roughly six months / about 168 days per NASA materials
+- Webb is not normally represented as hiding in Earth's umbra; the thermal story is dominated by its own Sun-facing sunshield and stable L2 geometry
 
 ### Nancy Grace Roman Space Telescope
 
@@ -74,7 +75,7 @@ UI:
 - play/pause
 - step backward/forward
 - jump to mission events
-- selectable rates such as 1x, 60x, 1 h/s, 1 d/s, 30 d/s
+- continuous or selectable time-compression rates
 
 Internal requirements:
 - deterministic replay
@@ -89,7 +90,7 @@ Show:
 - Sun
 - Earth
 - Moon
-- L1 and L2
+- L1 and L2 when useful
 - Webb orbit trail
 - Roman orbit trail
 - transfer trajectories when timeline intersects them
@@ -105,6 +106,24 @@ Show:
 - Webb/Roman departure direction and transfer trajectory when applicable
 - L2 direction indicator
 
+### L2 Close-up / Thermal Geometry View
+
+The L2 close-up must explain **why L2 is useful**, not merely show two spacecraft orbit loops.
+
+Required educational message:
+- Sun–Earth L2 lies on Earth's anti-solar side, but Webb and Roman are not normally sitting inside a permanent Earth umbra.
+- Webb and Roman occupy large halo/quasi-halo trajectories around the L2 region.
+- Their mission geometry is designed so the Sun, Earth, and Moon remain in roughly the same general direction from the spacecraft for long periods.
+- Stable solar illumination and stable source directions simplify power, thermal control, pointing constraints, communications geometry, and observing operations.
+
+Rendering rules:
+- **Hubble:** sunlight / Earth-shadow transitions may use a visible glow/dimming effect because the state changes frequently and therefore carries information.
+- **Webb / Roman:** do not use a permanent sunlight halo as the primary visual explanation; a nearly constant glow becomes decorative.
+- Webb should show a simple Sun-facing sunshield orientation cue and an opposite protected/cold observing side.
+- Roman should show a simpler Sun-facing thermal/orientation cue without implying that Roman has Webb's exact sunshield architecture.
+- A text card may explicitly state that the L2 observatories are normally sunlit and are not relying on Earth to shade them.
+- Do not use large arrows if the same information can be conveyed by attitude, lighting, composition, and concise text.
+
 ### Spacecraft Follow View
 
 Follow one observatory while optionally displaying:
@@ -114,6 +133,16 @@ Follow one observatory while optionally displaying:
 - orbit normal
 - telescope boresight
 - sunshield/body reference axes
+
+### Heliocentric Roman Mission Views
+
+Roman Mission must support both Earth/GSE and heliocentric views while preserving the same mission time.
+
+Heliocentric rendering rules:
+- Earth orbit is a thin, subdued blue-gray reference curve.
+- Roman's launch-to-L2 transfer is the visually dominant path.
+- The transfer spans about three months, therefore the mission path should occupy only about one quarter of Earth's annual orbit rather than visually implying a full-year trajectory.
+- L2 arrival must have dedicated close-up and side views so users can inspect the final approach and planned halo-orbit acquisition without zooming manually from 1 AU scale.
 
 ### Scale modes
 
@@ -153,6 +182,7 @@ interface DataSourceMetadata {
   productDate?: string;
   frame?: string;
   units?: string;
+  timeScale?: string;
   notes?: string;
 }
 ```
@@ -198,44 +228,50 @@ public/
 docs/
 ```
 
-## 7. First implementation milestone
+## 7. Visual-information policy
 
-The first visually working version should use simple geometric stand-ins rather than spending time on detailed spacecraft models.
+Every persistent visual effect should answer a question.
 
-Acceptance criteria:
+Good examples:
+- Hubble glow disappears in Earth's shadow.
+- A subdued reference plane reveals the out-of-ecliptic extent of a halo orbit.
+- A spacecraft attitude cue shows which side faces the Sun.
+
+Bad examples:
+- A permanent glow around Webb/Roman that does not change and therefore communicates no useful state.
+- Reference orbits with the same weight/color as the mission trajectory.
+- Large labels/arrows that obscure the scene without adding information.
+
+When an effect stops carrying state information, prefer geometry, attitude, or concise explanatory text.
+
+## 8. Current implementation milestones
+
+Acceptance criteria for the current generation:
 
 1. Page opens and renders Sun, Earth and Moon.
 2. Simulation clock can pause and advance at multiple rates.
-3. L2 is calculated/positioned from a documented Sun–Earth model.
-4. Hubble moves around Earth using SGP4/TLE data.
-5. Webb has a real ephemeris/trajectory-backed path where available.
-6. Roman has a real trajectory-backed transfer path where available.
-7. All three update from the same simulation clock.
-8. User can switch between Solar/L2, Earth, and follow views.
+3. L2 is calculated/positioned from a documented Sun–Earth model or clearly labeled educational approximation.
+4. Hubble moves around Earth and visibly demonstrates sunlight/eclipse state; next truth milestone is TLE + SGP4.
+5. Webb has an ephemeris/trajectory-backed path where available; current placeholder paths stay visibly marked educational.
+6. Roman has a launch-to-L2 mission playback with actual launch events and projected future milestones clearly distinguished.
+7. All views preserve a consistent mission/simulation time.
+8. User can switch among Earth/GSE, L2, heliocentric, follow, and dedicated L2-arrival views.
 9. Orbit trails can be toggled.
-10. The UI exposes source/provenance for the active trajectory.
-
-## 8. Second milestone
-
-- spacecraft illustration/model assets
-- JWST deployment event visualization
-- Roman mission events
-- Hubble Earth shadow and ground track
-- Sun vector / velocity vector / boresight overlays
-- educational annotations explaining L2 and the difference between Hubble LEO and L2 observatories
+10. The UI exposes source/provenance and explanatory cards for important geometry.
 
 ## 9. Later scientific features
 
 - CR3BP integrator and free propagation
 - station-keeping demonstrations
 - `disable station keeping` experiment
-- eclipse/penumbra modeling
+- higher-fidelity eclipse/penumbra modeling
 - real target pointing / field-of-regard constraints
 - instrument field of view overlays
 - archived TLE playback for historical Hubble dates
 - SPICE ingestion pipeline or preprocessed browser-friendly ephemeris cache
+- mission-specific Sun/Earth/Moon avoidance and thermal-angle constraints
 
-## 10. Non-goals for the first milestone
+## 10. Non-goals for the current milestone
 
 - full spacecraft rigid-body dynamics
 - high-fidelity propulsion simulation
