@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#03050a">
 <title>Three Observatories</title>
 <meta name="description" content="Hubble, Webb and Roman visualized in Earth orbit, Sun-Earth L2, and Roman's launch-to-L2 mission.">
-<link rel="stylesheet" href="./styles.css?v=20260830n">
+<link rel="stylesheet" href="./styles.css?v=20260830o">
 <link rel="stylesheet" href="./roman-heliocentric.css?v=20260830m">
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"}}</script>
 </head>
@@ -36,6 +36,15 @@
   <button id="closeFocus" class="close" aria-label="Close details">×</button>
   <div class="kicker" id="focusMode">PROPAGATED</div><h2 id="focusName">Hubble</h2><p id="focusInfo"></p>
 </div>
+<aside id="l2InfoCard" class="l2-info-card observatory-ui" hidden>
+  <div class="kicker">WHY L2?</div>
+  <h2>Stable illumination, not Earth shadow</h2>
+  <p>Webb and Roman orbit around the L2 region rather than hiding in Earth’s umbra. Sun, Earth and Moon stay in roughly the same direction on the warm side.</p>
+  <div class="l2-info-grid">
+    <span><strong>Webb</strong> carries its own sunshield to create the protected cold telescope side.</span>
+    <span><strong>Roman</strong> uses the same stable L2 geometry, with its own thermal and pointing design.</span>
+  </div>
+</aside>
 <div class="controls observatory-ui" aria-label="simulation controls">
   <div class="view-row" role="group" aria-label="Reference frame and view">
     <button data-view="system" class="pill active">Earth–L2</button>
@@ -110,7 +119,7 @@
   <div class="roman-provenance">Actual launch events: NASA Roman launch blog · Transfer geometry: NASA SVS 5673 / SPICE-informed visualization · Future milestones: PROJECTED / SIMULATED</div>
 </div>
 
-<script type="module" src="./src/main.js?v=20260830j"></script>
+<script type="module" src="./src/main.js?v=20260830o"></script>
 <script type="module" src="./src/roman-entry.js?v=20260830m"></script>
 </body>
 </html>
