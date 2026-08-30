@@ -1,0 +1,48 @@
+name: Update JWST ephemeris cache
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 9 1,15 * *'
+  push:
+    paths:
+      - '.github/workflows/update-jwst-ephemeris.yml'
+      - 'scripts/update-jwst-ephemeris.mjs'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-jwst-ephemeris
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Query JPL Horizons sequentially
+        run: node scripts/update-jwst-ephemeris.mjs
+
+      - name: Commit refreshed cache
+        shell: bash
+        run: |
+          if git diff --quiet -- public/data/jwst-horizons.json; then
+            echo 'JWST ephemeris cache is already current.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add public/data/jwst-horizons.json
+          git commit -m 'Update JWST Horizons ephemeris cache'
+          git push
