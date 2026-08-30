@@ -7,6 +7,7 @@ on:
       - 'index.html'
       - 'src/main.js'
       - 'src/main-core.js'
+      - 'src/three-add-guard.js'
       - 'public/data/jwst-horizons.json'
       - 'scripts/smoke-jwst-wave.mjs'
       - '.github/workflows/smoke-jwst-wave.yml'
@@ -27,8 +28,8 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install browser driver only
-        run: npm install --no-save playwright-core@1.55.0
+      - name: Install browser test dependencies
+        run: npm install --no-save playwright-core@1.55.0 pngjs@7.0.0
 
       - name: Start local site
         run: |
@@ -36,13 +37,24 @@ jobs:
           echo $! > /tmp/threeobservatories-http.pid
           sleep 2
 
-      - name: Render L2 wave
+      - name: Verify local L2 wave
+        env:
+          SMOKE_OUTPUT: jwst-wave-local.png
         run: node scripts/smoke-jwst-wave.mjs
 
-      - name: Upload screenshot
+      - name: Wait for GitHub Pages deployment
+        run: sleep 90
+
+      - name: Verify published L2 wave
+        env:
+          SMOKE_URL: https://trina0224.github.io/threeobservatories/?build=${{ github.sha }}
+          SMOKE_OUTPUT: jwst-wave-live.png
+        run: node scripts/smoke-jwst-wave.mjs
+
+      - name: Upload screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: jwst-wave-smoke
-          path: artifacts/jwst-wave.png
+          path: artifacts/*.png
           if-no-files-found: warn
