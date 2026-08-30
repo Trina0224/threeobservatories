@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#03050a">
 <title>Three Observatories</title>
 <meta name="description" content="Hubble, Webb and Roman visualized in Earth, Sun-Earth L2 and heliocentric frames.">
-<link rel="stylesheet" href="./styles.css?v=20260830c">
+<link rel="stylesheet" href="./styles.css?v=20260830d">
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"}}</script>
 </head>
 <body>
@@ -15,13 +15,19 @@
 <header class="mission-title">
   <div class="kicker">THREE OBSERVATORIES</div>
   <h1 id="viewTitle">Earth–L2 rotating frame</h1>
-  <p id="viewBlurb">Earth and the Sun–Earth L2 direction remain fixed while the observatories move around them.</p>
+  <p id="viewBlurb">Earth is fixed at the origin; +X points anti-sunward to L2, about 1.5 million km away.</p>
 </header>
 
 <div class="clock-hud">
   <span>UTC</span>
   <strong id="utcReadout">—</strong>
   <small id="frameReadout">EARTH–L2 ROTATING</small>
+</div>
+
+<div id="geometryReadout" class="geometry-readout" aria-hidden="true">
+  <span class="measure-line"><i></i></span>
+  <span>Earth ↔ L2</span>
+  <strong>≈ 1.50 million km</strong>
 </div>
 
 <div id="sunDirection" class="sun-direction" aria-hidden="true">
@@ -64,6 +70,6 @@
   </div>
 </div>
 
-<script type="module" src="./src/main.js?v=20260830c"></script>
+<script type="module" src="./src/main.js?v=20260830d"></script>
 </body>
 </html>
