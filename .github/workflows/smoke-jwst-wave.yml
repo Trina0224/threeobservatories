@@ -1,0 +1,48 @@
+name: Smoke test JWST L2 wave
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'index.html'
+      - 'src/main.js'
+      - 'src/main-core.js'
+      - 'public/data/jwst-horizons.json'
+      - 'scripts/smoke-jwst-wave.mjs'
+      - '.github/workflows/smoke-jwst-wave.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install browser driver only
+        run: npm install --no-save playwright-core@1.55.0
+
+      - name: Start local site
+        run: |
+          python3 -m http.server 4173 > /tmp/threeobservatories-http.log 2>&1 &
+          echo $! > /tmp/threeobservatories-http.pid
+          sleep 2
+
+      - name: Render L2 wave
+        run: node scripts/smoke-jwst-wave.mjs
+
+      - name: Upload screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jwst-wave-smoke
+          path: artifacts/jwst-wave.png
+          if-no-files-found: warn
