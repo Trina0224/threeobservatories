@@ -5,7 +5,8 @@ import { ROMAN_TRANSFER_SECONDS } from './data/roman-mission.js';
 const DAY = 86400;
 const YEAR = 365.256363004 * DAY;
 const AU = 22;
-const L2_OFFSET = AU * (1_500_000 / 149_597_870.7);
+const KM_PER_AU_RENDER = 149_597_870.7 / AU;
+const L2_OFFSET = 1_500_000 / KM_PER_AU_RENDER;
 const LAUNCH_EXPANDED_END = 2 * 3600;
 const $ = (id) => document.getElementById(id);
 
@@ -16,14 +17,14 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.setClearColor(0x02040a, 1);
 
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(38, 1, 0.005, 400);
+const camera = new THREE.PerspectiveCamera(38, 1, 0.002, 400);
 const controls = new OrbitControls(camera, canvas);
 controls.enableDamping = true;
 controls.dampingFactor = 0.065;
-controls.minDistance = 0.5;
+controls.minDistance = 0.05;
 controls.maxDistance = 180;
 
-scene.add(new THREE.HemisphereLight(0x8198b6, 0x05070b, 0.66));
+scene.add(new THREE.HemisphereLight(0x8198b6, 0x05070b, 0.64));
 const sunLight = new THREE.PointLight(0xffedc9, 45, 150, 1.4);
 scene.add(sunLight);
 
@@ -32,12 +33,17 @@ function stars(count = 1800) {
   let s = 8302026;
   const rnd = () => ((s = (1664525 * s + 1013904223) >>> 0) / 4294967296);
   for (let i = 0; i < count; i++) {
-    const r = 75 + rnd() * 120, z = rnd() * 2 - 1, p = rnd() * Math.PI * 2, q = Math.sqrt(1 - z * z);
-    a[i * 3] = r * q * Math.cos(p); a[i * 3 + 1] = r * z; a[i * 3 + 2] = r * q * Math.sin(p);
+    const r = 75 + rnd() * 120;
+    const z = rnd() * 2 - 1;
+    const p = rnd() * Math.PI * 2;
+    const q = Math.sqrt(1 - z * z);
+    a[i * 3] = r * q * Math.cos(p);
+    a[i * 3 + 1] = r * z;
+    a[i * 3 + 2] = r * q * Math.sin(p);
   }
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.BufferAttribute(a, 3));
-  scene.add(new THREE.Points(g, new THREE.PointsMaterial({ color: 0xb2bfd1, size: 0.055, transparent: true, opacity: 0.65 })));
+  scene.add(new THREE.Points(g, new THREE.PointsMaterial({ color: 0xb2bfd1, size: 0.055, transparent: true, opacity: 0.64 })));
 }
 stars();
 
@@ -47,16 +53,28 @@ function sphere(r, color, emissive = 0x000000) {
     new THREE.MeshStandardMaterial({ color, emissive, emissiveIntensity: emissive ? 1.4 : 0, roughness: 0.82 }),
   );
 }
+
 function circle(r, color, opacity, n = 360) {
   const pts = Array.from({ length: n }, (_, i) => {
     const a = i / n * Math.PI * 2;
     return new THREE.Vector3(Math.cos(a) * r, 0, Math.sin(a) * r);
   });
-  return new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color, transparent: true, opacity }));
+  return new THREE.LineLoop(
+    new THREE.BufferGeometry().setFromPoints(pts),
+    new THREE.LineBasicMaterial({ color, transparent: true, opacity }),
+  );
 }
+
+function line(points, color, opacity = 0.8) {
+  return new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints(points),
+    new THREE.LineBasicMaterial({ color, transparent: true, opacity }),
+  );
+}
+
 function tube(points, color, radius, opacity, closed = false) {
   return new THREE.Mesh(
-    new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points, closed, 'centripetal'), Math.max(160, points.length * 2), radius, 6, closed),
+    new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points, closed, 'centripetal'), Math.max(120, points.length * 2), radius, 6, closed),
     new THREE.MeshBasicMaterial({ color, transparent: true, opacity, depthWrite: false }),
   );
 }
@@ -68,45 +86,56 @@ const coronaCanvas = document.createElement('canvas');
 coronaCanvas.width = coronaCanvas.height = 256;
 const cc = coronaCanvas.getContext('2d');
 const cg = cc.createRadialGradient(128, 128, 38, 128, 128, 126);
-cg.addColorStop(0, 'rgba(255,205,105,.24)'); cg.addColorStop(.42, 'rgba(255,156,50,.09)'); cg.addColorStop(1, 'rgba(255,120,30,0)');
+cg.addColorStop(0, 'rgba(255,205,105,.24)');
+cg.addColorStop(.42, 'rgba(255,156,50,.09)');
+cg.addColorStop(1, 'rgba(255,120,30,0)');
 cc.fillStyle = cg; cc.fillRect(0, 0, 256, 256);
 const corona = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(coronaCanvas), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
-corona.scale.set(4.8, 4.8, 1); sun.add(corona);
+corona.scale.set(4.8, 4.8, 1);
+sun.add(corona);
 
-const earthOrbit = circle(AU, 0x355675, 0.36);
-const l2Orbit = circle(AU + L2_OFFSET, 0x5b7185, 0.20);
-scene.add(earthOrbit, l2Orbit);
+// Reference geometry stays deliberately quiet. Roman's path is the only bold trajectory.
+const earthOrbit = circle(AU, 0x49677f, 0.24);
+const l2GuideOrbit = circle(AU + L2_OFFSET, 0x62798c, 0.10);
+scene.add(earthOrbit, l2GuideOrbit);
 
-const ecliptic = new THREE.GridHelper(64, 32, 0x4a627b, 0x27394b);
+const ecliptic = new THREE.GridHelper(64, 32, 0x425970, 0x243545);
 ecliptic.material.transparent = true;
-ecliptic.material.opacity = 0.075;
+ecliptic.material.opacity = 0.055;
 scene.add(ecliptic);
 
-const earth = sphere(0.19, 0x2d79b6);
+const earth = sphere(0.17, 0x2d79b6);
 earth.rotation.z = THREE.MathUtils.degToRad(23.44);
 scene.add(earth);
 const earthGlow = new THREE.Mesh(
-  new THREE.SphereGeometry(0.205, 32, 20),
+  new THREE.SphereGeometry(0.185, 32, 20),
   new THREE.MeshBasicMaterial({ color: 0x75c8ff, transparent: true, opacity: 0.10, side: THREE.BackSide }),
 );
 earth.add(earthGlow);
 
 const l2Marker = new THREE.Group();
-const lm = new THREE.LineBasicMaterial({ color: 0x8da9be, transparent: true, opacity: 0.48 });
+const lm = new THREE.LineBasicMaterial({ color: 0x9bb4c7, transparent: true, opacity: 0.62 });
 l2Marker.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints([
-  new THREE.Vector3(-0.16, 0, 0), new THREE.Vector3(0.16, 0, 0),
-  new THREE.Vector3(0, -0.16, 0), new THREE.Vector3(0, 0.16, 0),
-  new THREE.Vector3(0, 0, -0.16), new THREE.Vector3(0, 0, 0.16),
+  new THREE.Vector3(-0.045, 0, 0), new THREE.Vector3(0.045, 0, 0),
+  new THREE.Vector3(0, -0.045, 0), new THREE.Vector3(0, 0.045, 0),
+  new THREE.Vector3(0, 0, -0.045), new THREE.Vector3(0, 0, 0.045),
 ]), lm));
 scene.add(l2Marker);
 
 const roman = new THREE.Group();
 const romanMat = new THREE.SpriteMaterial({ transparent: true, depthWrite: false, alphaTest: 0.03 });
-const romanSprite = new THREE.Sprite(romanMat); romanSprite.scale.setScalar(0.46); roman.add(romanSprite);
-const glow = new THREE.Sprite(new THREE.SpriteMaterial({ color: 0xffc96f, transparent: true, opacity: 0.25, depthWrite: false, blending: THREE.AdditiveBlending }));
-glow.scale.setScalar(0.68); roman.add(glow);
+const romanSprite = new THREE.Sprite(romanMat);
+romanSprite.scale.setScalar(0.42);
+roman.add(romanSprite);
+const glow = new THREE.Sprite(new THREE.SpriteMaterial({ color: 0xffc96f, transparent: true, opacity: 0.23, depthWrite: false, blending: THREE.AdditiveBlending }));
+glow.scale.setScalar(0.64);
+roman.add(glow);
 scene.add(roman);
-new THREE.TextureLoader().load('./public/assets/spacecraft/roman.png', (t) => { t.colorSpace = THREE.SRGBColorSpace; romanMat.map = t; romanMat.needsUpdate = true; });
+new THREE.TextureLoader().load('./public/assets/spacecraft/roman.png', (t) => {
+  t.colorSpace = THREE.SRGBColorSpace;
+  romanMat.map = t;
+  romanMat.needsUpdate = true;
+});
 
 function sliderToTime(v) {
   const x = Number(v) / 1000;
@@ -115,8 +144,8 @@ function sliderToTime(v) {
   return LAUNCH_EXPANDED_END + Math.pow(q, 1.24) * (ROMAN_TRANSFER_SECONDS - LAUNCH_EXPANDED_END);
 }
 
-function localTransfer(t) {
-  if (t <= 1860) return new THREE.Vector3(0.002, 0, 0);
+function localTransferKm(t) {
+  if (t <= 1860) return new THREE.Vector3(80_000 * Math.max(0, t / 1860), 0, 0);
   const u = THREE.MathUtils.clamp((t - 1860) / (ROMAN_TRANSFER_SECONDS - 1860), 0, 1);
   const ease = 1 - Math.pow(1 - u, 2.1);
   const radialKm = 80_000 + 1_420_000 * ease;
@@ -126,45 +155,66 @@ function localTransfer(t) {
 }
 
 function helioBasis(t) {
+  // Mission elapsed time starts at launch. Over ~90 days Earth advances ~89 degrees.
   const theta = (t / YEAR) * Math.PI * 2;
   const radial = new THREE.Vector3(Math.cos(theta), 0, Math.sin(theta));
   const tangent = new THREE.Vector3(-Math.sin(theta), 0, Math.cos(theta));
   return { theta, radial, tangent, up: new THREE.Vector3(0, 1, 0), earth: radial.clone().multiplyScalar(AU) };
 }
 
-function helioRoman(t) {
+function localToHelio(localKm, t) {
   const b = helioBasis(t);
-  const local = localTransfer(t);
-  const scale = AU / 149_597_870.7;
   return b.earth.clone()
-    .add(b.radial.clone().multiplyScalar(local.x * scale))
-    .add(b.up.clone().multiplyScalar(local.y * scale * 3.2))
-    .add(b.tangent.clone().multiplyScalar(local.z * scale * 3.2));
+    .add(b.radial.clone().multiplyScalar(localKm.x / KM_PER_AU_RENDER))
+    .add(b.up.clone().multiplyScalar(localKm.y / KM_PER_AU_RENDER * 3.2))
+    .add(b.tangent.clone().multiplyScalar(localKm.z / KM_PER_AU_RENDER * 3.2));
 }
 
-const pathPts = Array.from({ length: 420 }, (_, i) => helioRoman(1860 + i / 419 * (ROMAN_TRANSFER_SECONDS - 1860)));
-const path = tube(pathPts, 0xa482ff, 0.065, 0.88, false);
-scene.add(path);
-
-const haloWavePts = [];
-for (let i = 0; i < 320; i++) {
-  const t = ROMAN_TRANSFER_SECONDS + (i / 319) * 180 * DAY;
-  const b = helioBasis(t);
-  const a = i / 319 * Math.PI * 2.1;
-  const centre = b.radial.clone().multiplyScalar(AU + L2_OFFSET);
-  centre.add(b.up.clone().multiplyScalar(0.58 * Math.sin(a)));
-  centre.add(b.tangent.clone().multiplyScalar(0.48 * Math.cos(a)));
-  centre.add(b.radial.clone().multiplyScalar(0.18 * Math.sin(2 * a)));
-  haloWavePts.push(centre);
+function helioRoman(t) {
+  return localToHelio(localTransferKm(t), t);
 }
-const haloWave = tube(haloWavePts, 0xc194ff, 0.05, 0.52, false);
-scene.add(haloWave);
+
+// Roman mission trajectory: launch -> L+90 days only. No fake one-year continuation.
+const pathTimes = Array.from({ length: 320 }, (_, i) => 1860 + i / 319 * (ROMAN_TRANSFER_SECONDS - 1860));
+const pathPts = pathTimes.map((t) => helioRoman(t));
+const missionPath = tube(pathPts, 0xa986ff, 0.052, 0.88, false);
+scene.add(missionPath);
+
+// The final 12 days are also available as a quiet line for the dedicated L2 close-up.
+const approachTimes = Array.from({ length: 120 }, (_, i) => ROMAN_TRANSFER_SECONDS - 12 * DAY + i / 119 * 12 * DAY);
+const approachLine = line(approachTimes.map((t) => helioRoman(t)), 0xc0a6ff, 0.86);
+scene.add(approachLine);
+approachLine.visible = false;
+
+function arrivalBasis() { return helioBasis(ROMAN_TRANSFER_SECONDS); }
+function arrivalL2() {
+  const b = arrivalBasis();
+  return b.radial.clone().multiplyScalar(AU + L2_OFFSET);
+}
+
+const arrival = arrivalBasis();
+const haloPts = Array.from({ length: 220 }, (_, i) => {
+  const a = i / 220 * Math.PI * 2;
+  const c = arrivalL2();
+  // Readable display of the planned local halo shape around arrival L2.
+  c.add(arrival.radial.clone().multiplyScalar(0.035 * Math.sin(2 * a)));
+  c.add(arrival.up.clone().multiplyScalar(0.20 * Math.cos(a)));
+  c.add(arrival.tangent.clone().multiplyScalar(0.15 * Math.sin(a)));
+  return c;
+});
+const haloLoop = tube(haloPts, 0xc6a7ff, 0.018, 0.68, true);
+scene.add(haloLoop);
+haloLoop.visible = false;
 
 const state = { active: false, view: 'helio', anchor: null };
-const HELIO_VIEWS = new Set(['helio', 'helioTop', 'helioSide', 'earthFollow', 'romanOrbitFollow', 'helioFree']);
+const HELIO_VIEWS = new Set([
+  'helio', 'helioTop', 'helioSide', 'earthFollow', 'romanOrbitFollow', 'helioFree',
+  'helioL2', 'helioL2Side',
+]);
 
 function isHelioView(name) { return HELIO_VIEWS.has(name); }
 function currentElapsed() { return sliderToTime($('romanTimeline').value); }
+function isL2View() { return state.view === 'helioL2' || state.view === 'helioL2Side'; }
 
 function setHelioView(name) {
   if (!isHelioView(name)) {
@@ -172,22 +222,57 @@ function setHelioView(name) {
     document.body.classList.remove('roman-helio-active');
     return;
   }
-  state.active = true; state.view = name; state.anchor = null;
+
+  state.active = true;
+  state.view = name;
+  state.anchor = null;
   document.body.classList.add('roman-helio-active');
   controls.enabled = name === 'helioFree';
+
   const t = currentElapsed();
-  const b = helioBasis(t); const rp = helioRoman(t);
-  if (name === 'helio') { camera.position.set(0, 31, 37); controls.target.set(0, 0, 0); }
-  else if (name === 'helioTop') { camera.position.set(0, 54, 0.01); controls.target.set(0, 0, 0); }
-  else if (name === 'helioSide') { camera.position.set(0, 2.5, 54); controls.target.set(0, 0, 0); }
-  else if (name === 'earthFollow') {
-    const target = b.earth.clone().add(b.radial.clone().multiplyScalar(0.45));
-    camera.position.copy(target).add(b.tangent.clone().multiplyScalar(-7.5)).add(b.up.clone().multiplyScalar(4.5)).add(b.radial.clone().multiplyScalar(-2.2));
-    controls.target.copy(target); state.anchor = b.earth.clone();
+  const b = helioBasis(t);
+  const rp = helioRoman(t);
+  const currentL2 = b.radial.clone().multiplyScalar(AU + L2_OFFSET);
+
+  if (name === 'helio') {
+    camera.position.set(0, 31, 37);
+    controls.target.set(0, 0, 0);
+  } else if (name === 'helioTop') {
+    camera.position.set(0, 54, 0.01);
+    controls.target.set(0, 0, 0);
+  } else if (name === 'helioSide') {
+    camera.position.set(0, 2.5, 54);
+    controls.target.set(0, 0, 0);
+  } else if (name === 'earthFollow') {
+    const target = b.earth.clone().add(b.radial.clone().multiplyScalar(0.18));
+    camera.position.copy(target)
+      .add(b.tangent.clone().multiplyScalar(-2.2))
+      .add(b.up.clone().multiplyScalar(1.4))
+      .add(b.radial.clone().multiplyScalar(-0.75));
+    controls.target.copy(target);
+    state.anchor = b.earth.clone();
   } else if (name === 'romanOrbitFollow') {
-    camera.position.copy(rp).add(b.tangent.clone().multiplyScalar(-3.4)).add(b.up.clone().multiplyScalar(2.0)).add(b.radial.clone().multiplyScalar(-1.4));
-    controls.target.copy(rp); state.anchor = rp.clone();
-  } else if (name === 'helioFree') { camera.position.set(30, 15, 30); controls.target.set(0, 0, 0); }
+    camera.position.copy(rp)
+      .add(b.tangent.clone().multiplyScalar(-1.2))
+      .add(b.up.clone().multiplyScalar(0.75))
+      .add(b.radial.clone().multiplyScalar(-0.55));
+    controls.target.copy(rp);
+    state.anchor = rp.clone();
+  } else if (name === 'helioL2') {
+    camera.position.copy(currentL2)
+      .add(b.tangent.clone().multiplyScalar(-0.62))
+      .add(b.up.clone().multiplyScalar(0.44))
+      .add(b.radial.clone().multiplyScalar(0.30));
+    controls.target.copy(currentL2);
+  } else if (name === 'helioL2Side') {
+    camera.position.copy(currentL2)
+      .add(b.radial.clone().multiplyScalar(0.74))
+      .add(b.up.clone().multiplyScalar(0.08));
+    controls.target.copy(currentL2);
+  } else if (name === 'helioFree') {
+    camera.position.set(30, 15, 30);
+    controls.target.set(0, 0, 0);
+  }
   controls.update();
 }
 
@@ -195,39 +280,81 @@ function updateObjects() {
   const t = currentElapsed();
   const b = helioBasis(t);
   const rp = helioRoman(t);
+  const currentL2 = b.radial.clone().multiplyScalar(AU + L2_OFFSET);
+
   earth.position.copy(b.earth);
-  l2Marker.position.copy(b.radial).multiplyScalar(AU + L2_OFFSET);
+  l2Marker.position.copy(currentL2);
   roman.position.copy(rp);
   roman.visible = t >= 1860;
-  const launchFraction = THREE.MathUtils.clamp(t / (2 * 3600), 0, 1);
-  romanSprite.scale.setScalar(0.36 + 0.12 * launchFraction);
-  glow.scale.setScalar(romanSprite.scale.x * 1.6);
-  glow.material.opacity = 0.22 + 0.045 * Math.sin(performance.now() * 0.0015);
+
+  const l2View = isL2View();
+  sun.visible = !l2View;
+  earthOrbit.visible = !l2View;
+  l2GuideOrbit.visible = !l2View;
+  ecliptic.visible = !l2View;
+  missionPath.visible = !l2View;
+  approachLine.visible = l2View;
+  haloLoop.visible = l2View;
+
+  // Minimum visual sizes in close-up; positions remain in the heliocentric frame.
+  earth.scale.setScalar(l2View ? 0.42 : 1);
+  l2Marker.scale.setScalar(l2View ? 2.2 : 1);
+  romanSprite.scale.setScalar(l2View ? 0.20 : 0.42);
+  glow.scale.setScalar(romanSprite.scale.x * 1.55);
+  glow.material.opacity = 0.22 + 0.04 * Math.sin(performance.now() * 0.0015);
 
   if (state.view === 'earthFollow' && state.anchor) {
-    const d = b.earth.clone().sub(state.anchor); camera.position.add(d); controls.target.add(d); state.anchor.copy(b.earth);
+    const d = b.earth.clone().sub(state.anchor);
+    camera.position.add(d);
+    controls.target.add(d);
+    state.anchor.copy(b.earth);
   }
   if (state.view === 'romanOrbitFollow' && state.anchor) {
-    const d = rp.clone().sub(state.anchor); camera.position.add(d); controls.target.add(d); state.anchor.copy(rp);
+    const d = rp.clone().sub(state.anchor);
+    camera.position.add(d);
+    controls.target.add(d);
+    state.anchor.copy(rp);
+  }
+
+  // L2 close-up follows the moving Earth-L2 system without resetting user orientation.
+  if (l2View) {
+    const oldTarget = controls.target.clone();
+    const d = currentL2.clone().sub(oldTarget);
+    // Only translate the camera if time changed enough to move the L2 target.
+    if (d.lengthSq() > 1e-10) {
+      camera.position.add(d);
+      controls.target.copy(currentL2);
+    }
   }
 }
 
 function resize() {
-  const w = innerWidth, h = innerHeight, pr = renderer.getPixelRatio();
+  const w = innerWidth;
+  const h = innerHeight;
+  const pr = renderer.getPixelRatio();
   if (canvas.width !== Math.round(w * pr) || canvas.height !== Math.round(h * pr)) renderer.setSize(w, h, false);
-  camera.aspect = w / h; camera.updateProjectionMatrix();
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
 }
 
 function tick() {
   if (state.active && document.body.classList.contains('roman-active')) {
-    resize(); updateObjects(); controls.update(); sun.rotation.y += 0.0012; renderer.render(scene, camera);
+    resize();
+    updateObjects();
+    controls.update();
+    if (sun.visible) sun.rotation.y += 0.0012;
+    renderer.render(scene, camera);
   }
   requestAnimationFrame(tick);
 }
 
 document.querySelectorAll('[data-roman-view]').forEach((b) => b.addEventListener('click', () => setHelioView(b.dataset.romanView)));
-$('modeObservatories').addEventListener('click', () => { state.active = false; document.body.classList.remove('roman-helio-active'); });
+$('modeObservatories').addEventListener('click', () => {
+  state.active = false;
+  document.body.classList.remove('roman-helio-active');
+});
 $('modeRoman').addEventListener('click', () => {
-  if (isHelioView(document.querySelector('[data-roman-view].active')?.dataset.romanView || '')) setHelioView(document.querySelector('[data-roman-view].active').dataset.romanView);
+  const activeView = document.querySelector('[data-roman-view].active')?.dataset.romanView || '';
+  if (isHelioView(activeView)) setHelioView(activeView);
 });
 requestAnimationFrame(tick);
