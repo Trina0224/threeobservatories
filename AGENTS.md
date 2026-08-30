@@ -12,6 +12,45 @@ Reconstruct and visualize three observatories in a shared UTC simulation:
 
 The simulation should be educational, inspectable, and physically grounded. Never invent a trajectory merely because it looks plausible.
 
+## Reuse from `Trina0224/simplegames/threebody`
+
+This project has an upstream orbital-mechanics sandbox owned by the same author:
+
+- https://github.com/Trina0224/simplegames/tree/main/threebody
+
+Agents MUST inspect and reuse validated upstream modules before implementing equivalent functionality from scratch.
+
+### Reuse directly unless there is a documented reason not to
+
+- `threebody/src/integrator.js` — adaptive Dormand–Prince 5(4), dense output, numerical diagnostics.
+- `threebody/src/playback.js` — deterministic trajectory playback semantics.
+- General testing/validation patterns from `threebody/tools/`.
+
+When copied, preserve an upstream provenance comment and record the source commit/path in `docs/UPSTREAM_REUSE.md`.
+
+### Adapt rather than blindly copy
+
+- `threebody/src/cr3bp3d.js`
+- `threebody/src/lagrange.js`
+- `threebody/src/halo.js`
+- `threebody/src/trajectory3d.js`
+- `threebody/src/frames3d.js`
+- `threebody/src/events3.js`
+- worker-based propagation patterns
+
+These are scientifically valuable but currently encode Earth–Moon normalization, constants, or frame assumptions. For Three Observatories, generalize them into a parameterized two-primary CR3BP layer and instantiate a Sun–Earth system. Do not silently reuse Earth–Moon units/constants.
+
+### Reuse concepts, not implementation
+
+- `threebody/src/render3d.js`
+- `threebody/src/app.js`
+
+The useful concepts are one physical history with multiple views, playback separated from propagation, orthogonal scientific views, orbit trails, reference planes, fit/zoom behavior, diagnostics, and worker isolation. The new application should use the Three.js/WebGL rendering stack rather than copying the old Canvas 2D renderer wholesale.
+
+### Regression rule
+
+Do not weaken or discard an already validated upstream numerical behavior merely to make a new implementation appear to work. When adapting a solver, first reproduce one or more upstream reference cases, then add Sun–Earth validation cases.
+
 ## Source hierarchy
 
 When sources disagree, prefer in this order:
@@ -27,7 +66,7 @@ Record the source URL, product date/version, coordinate frame, units, epoch/time
 
 ## Required reading before changing orbital code
 
-Read `docs/RESEARCH_SOURCES.md` and `docs/COORDINATES.md` first.
+Read `docs/RESEARCH_SOURCES.md`, `docs/COORDINATES.md`, and `docs/UPSTREAM_REUSE.md` first.
 
 Minimum concepts:
 
@@ -54,6 +93,10 @@ Minimum concepts:
 ## Architecture boundaries
 
 Keep these layers separate:
+
+### `src/core/`
+
+Numerical utilities and application-independent trajectory playback. No mission constants and no Three.js objects.
 
 ### `src/physics/`
 
