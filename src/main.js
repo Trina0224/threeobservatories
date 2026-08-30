@@ -22,6 +22,19 @@ await import('./main-core.js?v=20260830p');
 // Freeze the Observatories scene before Roman's independent renderers can replace lastScene.
 const observatoryScene = lastScene;
 
+// main-core's old L2-wave renderer still creates an educational amber Webb tube.
+// It conflicts with the real Horizons overlay and caused a frame-by-frame visible
+// tug-of-war. The empty direct scene group is waveGroup at initial system view;
+// keep Roman's projected purple wave, but refuse future fake amber Webb tubes.
+const legacyWaveGroup = observatoryScene?.children.find((child) => child.isGroup && child.children.length === 0) || null;
+if (legacyWaveGroup) {
+  const legacyWaveAdd = legacyWaveGroup.add.bind(legacyWaveGroup);
+  legacyWaveGroup.add = (...objects) => legacyWaveAdd(...objects.filter((obj) => {
+    const color = obj?.material?.color?.getHex?.();
+    return !(obj?.isMesh && obj?.geometry?.type === 'TubeGeometry' && color === 0xefb45d);
+  }));
+}
+
 const satellite = await import('https://cdn.jsdelivr.net/npm/satellite.js@6.0.2/+esm');
 
 // HST / NORAD 20580. Public GP/TLE epoch: 2026-08-29T20:39:49.726Z.
@@ -30,6 +43,10 @@ const HST_TLE2 = '2 20580  28.4729 296.7524 0001603 231.7887 128.2565 15.3150218
 const hstSatrec = satellite.twoline2satrec(HST_TLE1, HST_TLE2);
 const HST_READABLE_RADIUS = 1.05;
 const KM_PER_LOCAL_UNIT = 100000;
+const DAY_MS = 86400000;
+const YEAR_S = 365.256363004 * 86400;
+const AU_RENDER = 22;
+const WAVE_LOCAL_SCALE = 0.24;
 const eps = THREE.MathUtils.degToRad(23.44);
 const CE = Math.cos(eps), SE = Math.sin(eps);
 const truth = { jwst: [], sun: [], jwstReady: false, horizonsError: null };
@@ -65,7 +82,7 @@ async function loadHorizons() {
     truth.jwst = parseHorizonsVectors(await j.text());
     truth.sun = parseHorizonsVectors(await s.text());
     truth.jwstReady = true;
-    refreshTruthTrails();
+    refreshTruthTrails(true);
   } catch (error) {
     truth.horizonsError = error;
     console.warn('JWST Horizons ephemeris unavailable; no fake current Webb phase will be claimed.', error);
@@ -117,7 +134,7 @@ function craftGroup(fragment) {
   return found;
 }
 
-let hstTrail = null, webbTrail = null;
+let hstTrail = null, webbTrail = null, webbWaveTrail = null;
 function ensureTrails() {
   const root = earthSystem(); if (!root) return false;
   if (!hstTrail) {
@@ -127,6 +144,12 @@ function ensureTrails() {
   if (!webbTrail) {
     webbTrail = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0xefb45d, transparent: true, opacity: .84 }));
     webbTrail.userData.truthTrail = true; root.add(webbTrail);
+  }
+  if (!webbWaveTrail && observatoryScene) {
+    webbWaveTrail = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0xefb45d, transparent: true, opacity: .92 }));
+    webbWaveTrail.userData.truthTrail = true;
+    webbWaveTrail.renderOrder = 4;
+    observatoryScene.add(webbWaveTrail);
   }
   return true;
 }
@@ -151,6 +174,19 @@ function jwstPos(ms) {
   const v = truth.jwstReady ? interpolate(truth.jwst, ms) : null;
   return v ? toRotating(v, ms, true) : null;
 }
+function jwstWaveWorldPos(ms) {
+  const local = jwstPos(ms);
+  if (!local) return null;
+  const theta = ((ms / 1000) / YEAR_S) * Math.PI * 2;
+  const radial = new THREE.Vector3(Math.cos(theta), 0, Math.sin(theta));
+  const tangent = new THREE.Vector3(-Math.sin(theta), 0, Math.cos(theta));
+  const up = new THREE.Vector3(0, 1, 0);
+  const centre = radial.clone().multiplyScalar(AU_RENDER);
+  return centre
+    .add(radial.clone().multiplyScalar(local.x * WAVE_LOCAL_SCALE))
+    .add(up.multiplyScalar(local.y * WAVE_LOCAL_SCALE))
+    .add(tangent.multiplyScalar(local.z * WAVE_LOCAL_SCALE));
+}
 function refreshHstTrail(ms, readable) {
   if (!ensureTrails()) return;
   const pts = [], period = 94.03 * 60 * 1000;
@@ -159,16 +195,28 @@ function refreshHstTrail(ms, readable) {
 }
 function refreshWebbTrail(ms) {
   if (!truth.jwstReady || !ensureTrails()) return;
-  const pts = [], half = 100 * 86400000;
+  const pts = [], half = 100 * DAY_MS;
   for (let i = 0; i < 260; i++) { const t = ms - half + i / 259 * half * 2; const p = jwstPos(t); if (p) pts.push(p); }
   if (pts.length > 20) webbTrail.geometry.setFromPoints(pts);
 }
-function refreshTruthTrails() {
+function refreshWebbWaveTrail(ms) {
+  if (!truth.jwstReady || !ensureTrails()) return;
+  const pts = [], half = 182 * DAY_MS;
+  for (let i = 0; i < 360; i++) {
+    const t = ms - half + (i / 359) * half * 2;
+    const p = jwstWaveWorldPos(t);
+    if (p) pts.push(p);
+  }
+  if (pts.length > 20) webbWaveTrail.geometry.setFromPoints(pts);
+}
+function refreshTruthTrails(includeWave = false) {
   const ms = simMs(), readable = document.getElementById('scaleToggle')?.checked ?? true;
-  refreshHstTrail(ms, readable); refreshWebbTrail(ms);
+  refreshHstTrail(ms, readable);
+  refreshWebbTrail(ms);
+  if (includeWave) refreshWebbWaveTrail(ms);
 }
 
-let trailBucket = '';
+let trailBucket = '', waveBucket = '';
 function applyTruth() {
   const ms = simMs(), readable = document.getElementById('scaleToggle')?.checked ?? true;
   const view = document.querySelector('[data-view].active')?.dataset.view || 'system';
@@ -176,13 +224,24 @@ function applyTruth() {
   const h = craftGroup('hubble.png'), w = craftGroup('jwst.png');
   if (h) { const p = hstPos(ms, readable); if (p) h.position.copy(p); }
   if (w && truth.jwstReady) { const p = jwstPos(ms); if (p) w.position.copy(p); }
-  hidePlaceholders(); ensureTrails();
+
+  hidePlaceholders();
+  ensureTrails();
   if (hstTrail) hstTrail.visible = trails && (view === 'earth' || view === 'system');
-  // A real Earth-centered Webb trail is shown only where that frame is meaningful.
-  // The old hand-drawn heliocentric amber wave is intentionally hidden.
   if (webbTrail) webbTrail.visible = trails && (view === 'system' || view === 'l2') && truth.jwstReady;
+  if (webbWaveTrail) webbWaveTrail.visible = trails && view === 'heliofollow' && truth.jwstReady;
+
   const bucket = `${Math.floor(ms / 3600000)}:${readable}:${truth.jwstReady}`;
-  if (bucket !== trailBucket) { trailBucket = bucket; refreshHstTrail(ms, readable); refreshWebbTrail(ms); }
+  if (bucket !== trailBucket) {
+    trailBucket = bucket;
+    refreshHstTrail(ms, readable);
+    refreshWebbTrail(ms);
+  }
+  const wb = `${Math.floor(ms / (7 * DAY_MS))}:${truth.jwstReady}`;
+  if (view === 'heliofollow' && wb !== waveBucket) {
+    waveBucket = wb;
+    refreshWebbWaveTrail(ms);
+  }
 }
 
 function sourceCopy() {
@@ -201,5 +260,6 @@ function sourceCopy() {
   })));
 }
 
-sourceCopy(); loadHorizons();
+sourceCopy();
+loadHorizons();
 (function tickTruth() { applyTruth(); requestAnimationFrame(tickTruth); })();
