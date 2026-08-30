@@ -11,36 +11,30 @@
 </head>
 <body>
 <canvas id="scene" aria-label="Three observatories orbital visualization"></canvas>
-
 <header class="mission-title">
   <div class="kicker">THREE OBSERVATORIES</div>
   <h1 id="viewTitle">Earth–L2 rotating frame</h1>
   <p id="viewBlurb">Earth is fixed at the origin; +X points anti-sunward to L2, about 1.5 million km away.</p>
 </header>
-
 <div class="clock-hud">
   <span>UTC</span>
   <strong id="utcReadout">—</strong>
   <small id="frameReadout">EARTH–L2 ROTATING</small>
 </div>
-
 <div id="geometryReadout" class="geometry-readout" aria-hidden="true">
   <span class="measure-line"><i></i></span>
   <span>Earth ↔ L2</span>
   <strong>≈ 1.50 million km</strong>
 </div>
-
 <div id="sunDirection" class="sun-direction" aria-hidden="true">
   <span class="sun-ray"></span><span>toward Sun</span>
 </div>
-
 <div id="focusCard" class="focus-card" hidden>
   <button id="closeFocus" class="close" aria-label="Close details">×</button>
   <div class="kicker" id="focusMode">PROPAGATED</div>
   <h2 id="focusName">Hubble</h2>
   <p id="focusInfo"></p>
 </div>
-
 <div class="controls" aria-label="simulation controls">
   <div class="view-row" role="group" aria-label="Reference frame and view">
     <button data-view="system" class="pill active">Earth–L2</button>
@@ -50,7 +44,6 @@
     <button data-view="helio" class="pill">Sun / Earth orbit</button>
     <button data-view="free" class="pill">Free</button>
   </div>
-
   <div class="transport-row">
     <button id="playBtn" class="pill transport">Pause</button>
     <button id="nowBtn" class="pill">Now</button>
@@ -62,7 +55,6 @@
     <label class="check"><input id="trailToggle" type="checkbox" checked> trails</label>
     <label class="check"><input id="scaleToggle" type="checkbox" checked> readable scale</label>
   </div>
-
   <div class="craft-row" role="group" aria-label="Follow observatory">
     <span>FOLLOW</span>
     <button data-focus="hubble"><i class="mark hubble"></i>Hubble</button>
@@ -70,7 +62,6 @@
     <button data-focus="roman"><i class="mark roman"></i>Roman</button>
   </div>
 </div>
-
-<script type="module" src="./src/main.js?v=20260830f"></script>
+<script type="module" src="./src/main.js?v=20260830g"></script>
 </body>
 </html>
