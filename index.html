@@ -6,34 +6,26 @@
 <meta name="theme-color" content="#03050a">
 <title>Three Observatories</title>
 <meta name="description" content="Hubble, Webb and Roman visualized in Earth, Sun-Earth L2 and heliocentric frames.">
-<link rel="stylesheet" href="./styles.css?v=20260830f">
+<link rel="stylesheet" href="./styles.css?v=20260830j">
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"}}</script>
 </head>
 <body>
 <canvas id="scene" aria-label="Three observatories orbital visualization"></canvas>
+<div id="solarWash" class="solar-wash" aria-hidden="true"></div>
 <header class="mission-title">
   <div class="kicker">THREE OBSERVATORIES</div>
   <h1 id="viewTitle">Earth–L2 rotating frame</h1>
   <p id="viewBlurb">Earth is fixed at the origin; +X points anti-sunward to L2, about 1.5 million km away.</p>
 </header>
 <div class="clock-hud">
-  <span>UTC</span>
-  <strong id="utcReadout">—</strong>
-  <small id="frameReadout">EARTH–L2 ROTATING</small>
+  <span>UTC</span><strong id="utcReadout">—</strong><small id="frameReadout">EARTH–L2 ROTATING</small>
 </div>
 <div id="geometryReadout" class="geometry-readout" aria-hidden="true">
-  <span class="measure-line"><i></i></span>
-  <span>Earth ↔ L2</span>
-  <strong>≈ 1.50 million km</strong>
-</div>
-<div id="sunDirection" class="sun-direction" aria-hidden="true">
-  <span class="sun-ray"></span><span>toward Sun</span>
+  <span class="measure-line"><i></i></span><span>Earth ↔ L2</span><strong>≈ 1.50 million km</strong>
 </div>
 <div id="focusCard" class="focus-card" hidden>
   <button id="closeFocus" class="close" aria-label="Close details">×</button>
-  <div class="kicker" id="focusMode">PROPAGATED</div>
-  <h2 id="focusName">Hubble</h2>
-  <p id="focusInfo"></p>
+  <div class="kicker" id="focusMode">PROPAGATED</div><h2 id="focusName">Hubble</h2><p id="focusInfo"></p>
 </div>
 <div class="controls" aria-label="simulation controls">
   <div class="view-row" role="group" aria-label="Reference frame and view">
@@ -42,16 +34,11 @@
     <button data-view="l2" class="pill">L2 close-up</button>
     <button data-view="heliofollow" class="pill">L2 wave</button>
     <button data-view="helio" class="pill">Sun / Earth orbit</button>
-    <button data-view="free" class="pill">Free</button>
   </div>
   <div class="transport-row">
     <button id="playBtn" class="pill transport">Pause</button>
     <button id="nowBtn" class="pill">Now</button>
-    <div class="rate-control">
-      <span class="rate-name">TIME</span>
-      <input id="rateSlider" type="range" min="0" max="1000" step="1" value="433" aria-label="Simulation time compression">
-      <output id="rateReadout" for="rateSlider">600×</output>
-    </div>
+    <div class="rate-control"><span class="rate-name">TIME</span><input id="rateSlider" type="range" min="0" max="1000" step="1" value="433" aria-label="Simulation time compression"><output id="rateReadout" for="rateSlider">600×</output></div>
     <label class="check"><input id="trailToggle" type="checkbox" checked> trails</label>
     <label class="check"><input id="scaleToggle" type="checkbox" checked> readable scale</label>
   </div>
@@ -62,6 +49,6 @@
     <button data-focus="roman"><i class="mark roman"></i>Roman</button>
   </div>
 </div>
-<script type="module" src="./src/main.js?v=20260830i"></script>
+<script type="module" src="./src/main.js?v=20260830j"></script>
 </body>
 </html>
