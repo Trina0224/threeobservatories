@@ -16,7 +16,8 @@ const KM_PER_LOCAL_UNIT = 100_000;
 const AU_RENDER = 22;
 const L2_HELIO_OFFSET = AU_RENDER * (L2_KM / EARTH_ORBIT_KM);
 const TRUE_HELIO_LOCAL_SCALE = (AU_RENDER / EARTH_ORBIT_KM) * KM_PER_LOCAL_UNIT;
-const READABLE_HELIO_LOCAL_SCALE = 0.055;
+const OVERVIEW_LOCAL_SCALE = 0.055;
+const WAVE_LOCAL_SCALE = 0.24;
 const HUBBLE_INC = THREE.MathUtils.degToRad(28.5);
 const MOON_INC = THREE.MathUtils.degToRad(5.145);
 const MAX_RATE = 30 * DAY;
@@ -30,12 +31,12 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.setClearColor(0x03050a, 1);
 
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(38, 1, 0.001, 800);
+const camera = new THREE.PerspectiveCamera(38, 1, 0.001, 900);
 const controls = new OrbitControls(camera, canvas);
 controls.enableDamping = true;
 controls.dampingFactor = 0.065;
 controls.minDistance = 0.06;
-controls.maxDistance = 180;
+controls.maxDistance = 220;
 
 scene.add(new THREE.HemisphereLight(0x8ca6c9, 0x080a10, 1.1));
 const sunLight = new THREE.DirectionalLight(0xfff1d0, 4.0);
@@ -84,6 +85,14 @@ function orbitLine(color, opacity = 0.35) {
   return new THREE.LineLoop(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color, transparent: true, opacity }));
 }
 
+function tubeFromPoints(points, color, radius = 0.06, opacity = 0.78, closed = true) {
+  const curve = new THREE.CatmullRomCurve3(points, closed, 'centripetal');
+  return new THREE.Mesh(
+    new THREE.TubeGeometry(curve, Math.max(96, points.length), radius, 6, closed),
+    new THREE.MeshBasicMaterial({ color, transparent: true, opacity, depthWrite: false }),
+  );
+}
+
 // +X is the anti-solar direction. Everything in this group is one Earth-local state.
 const earthSystem = new THREE.Group();
 scene.add(earthSystem);
@@ -97,25 +106,23 @@ const atmosphere = new THREE.Mesh(
   new THREE.MeshBasicMaterial({ color: 0x6fb6e8, transparent: true, opacity: 0.10, side: THREE.BackSide }),
 );
 earth.add(atmosphere);
-
 const equator = circle(0.755, 0x6e8aa6, 0.13, 160);
 earth.add(equator);
 
 const moonTrail = orbitLine(0x718096, 0.16);
-const hubbleTrail = orbitLine(0xdcecff, 0.48);
-const webbTrail = orbitLine(0xefb45d, 0.50);
-const romanTrail = orbitLine(0xb88cff, 0.44);
+const hubbleTrail = orbitLine(0xdcecff, 0.52);
+const webbTrail = orbitLine(0xefb45d, 0.82);
+const romanTrail = orbitLine(0xb88cff, 0.76);
 earthSystem.add(moonTrail, hubbleTrail, webbTrail, romanTrail);
 
-// Earth -> L2 geometry. This is a measurement/reference layer, not an orbit.
+// Earth -> L2 measurement/reference layer.
 const geometryLayer = new THREE.Group();
 earthSystem.add(geometryLayer);
 const axisMat = new THREE.LineBasicMaterial({ color: 0x7892a9, transparent: true, opacity: 0.28 });
-const axis = new THREE.Line(
+geometryLayer.add(new THREE.Line(
   new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0.85, 0, 0), new THREE.Vector3(L2_KM / KM_PER_LOCAL_UNIT, 0, 0)]),
   axisMat,
-);
-geometryLayer.add(axis);
+));
 for (const x of [5, 10, 15]) {
   geometryLayer.add(new THREE.Line(
     new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(x, -0.12, 0), new THREE.Vector3(x, 0.12, 0)]),
@@ -125,7 +132,7 @@ for (const x of [5, 10, 15]) {
 
 // L2 is a reference marker, not a celestial body.
 const l2 = new THREE.Group();
-const l2Mat = new THREE.LineBasicMaterial({ color: 0x86a6bd, transparent: true, opacity: 0.38 });
+const l2Mat = new THREE.LineBasicMaterial({ color: 0x86a6bd, transparent: true, opacity: 0.40 });
 l2.add(new THREE.LineSegments(
   new THREE.BufferGeometry().setFromPoints([
     new THREE.Vector3(-0.18, 0, 0), new THREE.Vector3(0.18, 0, 0),
@@ -142,7 +149,7 @@ l2.add(new THREE.LineLoop(
 l2.position.x = L2_KM / KM_PER_LOCAL_UNIT;
 earthSystem.add(l2);
 
-// The Y-Z plane through L2 makes the out-of-ecliptic extent of halo-like paths legible.
+// Reference plane through L2 for the rotating close-up.
 const haloPlane = new THREE.Mesh(
   new THREE.PlaneGeometry(12, 10),
   new THREE.MeshBasicMaterial({ color: 0x7899b4, transparent: true, opacity: 0.035, side: THREE.DoubleSide, depthWrite: false }),
@@ -181,27 +188,22 @@ const craft = {
   roman: spacecraft('./public/assets/spacecraft/roman.png', 0xb88cff, 1.15),
 };
 
-// Heliocentric references. L2's guide orbit is deliberately shown just outside
-// Earth's orbit: at every date it stays on the anti-solar continuation of Sun -> Earth.
-const sun = sphere(1.15, 0xffbf47, 0.82, 0xff8f1f);
-scene.add(sun);
-const earthOrbit = circle(AU_RENDER, 0x38516f, 0.32, 360);
-const l2GuideOrbit = circle(AU_RENDER + L2_HELIO_OFFSET, 0x597086, 0.16, 360);
-scene.add(earthOrbit, l2GuideOrbit);
-sun.visible = false;
-earthOrbit.visible = false;
-l2GuideOrbit.visible = false;
-
-function loopPts(rx, ry, rz, phase = 0, n = 220) {
-  const pts = [];
-  for (let i = 0; i < n; i++) {
+function loopPts(rx, ry, rz, phase = 0, n = 240) {
+  return Array.from({ length: n }, (_, i) => {
     const a = (i / n) * Math.PI * 2 + phase;
-    pts.push(new THREE.Vector3(L2_KM / KM_PER_LOCAL_UNIT + rx * Math.sin(2 * a), ry * Math.cos(a), rz * Math.sin(a)));
-  }
-  return pts;
+    return new THREE.Vector3(L2_KM / KM_PER_LOCAL_UNIT + rx * Math.sin(2 * a), ry * Math.cos(a), rz * Math.sin(a));
+  });
 }
-webbTrail.geometry.setFromPoints(loopPts(1.9, 5.5, 4.2));
-romanTrail.geometry.setFromPoints(loopPts(1.45, 4.6, 3.4, 1.15));
+const webbLocalPts = loopPts(1.9, 5.5, 4.2);
+const romanLocalPts = loopPts(1.45, 4.6, 3.4, 1.15);
+webbTrail.geometry.setFromPoints(webbLocalPts);
+romanTrail.geometry.setFromPoints(romanLocalPts);
+
+// WebGL line width is effectively fixed on many browsers, so the predicted paths
+// also have real tube geometry. This keeps them visible on iPad and in oblique views.
+const webbTube = tubeFromPoints(webbLocalPts, 0xefb45d, 0.075, 0.72, true);
+const romanTube = tubeFromPoints(romanLocalPts, 0xb88cff, 0.068, 0.67, true);
+earthSystem.add(webbTube, romanTube);
 
 function localCircle(radius, inc, n = 180) {
   return Array.from({ length: n }, (_, i) => {
@@ -211,10 +213,89 @@ function localCircle(radius, inc, n = 180) {
   });
 }
 
+// Heliocentric references.
+const sun = sphere(1.15, 0xffbf47, 0.82, 0xff8f1f);
+scene.add(sun);
+const earthOrbit = circle(AU_RENDER, 0x38516f, 0.34, 360);
+const l2GuideOrbit = circle(AU_RENDER + L2_HELIO_OFFSET, 0x597086, 0.20, 360);
+scene.add(earthOrbit, l2GuideOrbit);
+sun.visible = false;
+earthOrbit.visible = false;
+l2GuideOrbit.visible = false;
+
+// The ecliptic plane becomes useful only in the heliocentric-follow view.
+const eclipticGrid = new THREE.GridHelper(64, 32, 0x526f8b, 0x33475c);
+eclipticGrid.material.transparent = true;
+eclipticGrid.material.opacity = 0.10;
+eclipticGrid.visible = false;
+scene.add(eclipticGrid);
+
+// Full heliocentric predicted paths. These are regenerated around the simulation
+// epoch so the user sees the halo motion as a wave above/below the ecliptic while
+// the whole Earth-L2 system progresses around the Sun.
+const waveGroup = new THREE.Group();
+scene.add(waveGroup);
+let waveKey = '';
+
+function earthHelioState(tSec) {
+  const theta = (tSec / YEAR) * Math.PI * 2;
+  const radial = new THREE.Vector3(Math.cos(theta), 0, Math.sin(theta));
+  const tangent = new THREE.Vector3(-Math.sin(theta), 0, Math.cos(theta));
+  const centre = radial.clone().multiplyScalar(AU_RENDER);
+  return { theta, radial, tangent, up: new THREE.Vector3(0, 1, 0), centre };
+}
+
+function haloLocalAt(tSec, which) {
+  if (which === 'webb') {
+    const a = (tSec / WEBB_PERIOD) * Math.PI * 2;
+    return new THREE.Vector3(L2_KM / KM_PER_LOCAL_UNIT + 1.9 * Math.sin(2 * a), 5.5 * Math.cos(a), 4.2 * Math.sin(a));
+  }
+  const a = (tSec / ROMAN_PERIOD) * Math.PI * 2 + 1.15;
+  return new THREE.Vector3(L2_KM / KM_PER_LOCAL_UNIT + 1.45 * Math.sin(2 * a), 4.6 * Math.cos(a), 3.4 * Math.sin(a));
+}
+
+function localToHelio(local, tSec, scale) {
+  const { radial, tangent, up, centre } = earthHelioState(tSec);
+  return centre.clone()
+    .add(radial.multiplyScalar(local.x * scale))
+    .add(up.multiplyScalar(local.y * scale))
+    .add(tangent.multiplyScalar(local.z * scale));
+}
+
+function currentHelioScale() {
+  if (!sim.readable) return TRUE_HELIO_LOCAL_SCALE;
+  return sim.view === 'heliofollow' ? WAVE_LOCAL_SCALE : OVERVIEW_LOCAL_SCALE;
+}
+
+function rebuildWavePaths(force = false) {
+  const centreT = sim.timeMs / 1000;
+  const scale = currentHelioScale();
+  const key = `${Math.floor(centreT / (7 * DAY))}:${sim.readable}:${sim.view}`;
+  if (!force && key === waveKey) return;
+  waveKey = key;
+  while (waveGroup.children.length) {
+    const child = waveGroup.children.pop();
+    child.geometry?.dispose();
+    child.material?.dispose();
+  }
+  const span = YEAR;
+  const n = 360;
+  const webbPts = [];
+  const romanPts = [];
+  for (let i = 0; i < n; i++) {
+    const t = centreT - span / 2 + (i / (n - 1)) * span;
+    webbPts.push(localToHelio(haloLocalAt(t, 'webb'), t, scale));
+    romanPts.push(localToHelio(haloLocalAt(t, 'roman'), t, scale));
+  }
+  const thick = sim.view === 'heliofollow';
+  waveGroup.add(tubeFromPoints(webbPts, 0xefb45d, thick ? 0.085 : 0.055, thick ? 0.86 : 0.62, false));
+  waveGroup.add(tubeFromPoints(romanPts, 0xb88cff, thick ? 0.078 : 0.050, thick ? 0.82 : 0.58, false));
+}
+
 const sim = {
   timeMs: Date.now(), playing: true, rate: 600,
   view: 'system', frame: 'rotating', readable: true,
-  last: performance.now(), focus: null,
+  last: performance.now(), focus: null, followAnchor: null,
 };
 
 function refreshLocalGeometry() {
@@ -239,45 +320,46 @@ function updateLocalState() {
   craft.hubble.group.position.set(Math.cos(hubbleA) * hubbleR, 0, Math.sin(hubbleA) * hubbleR)
     .applyAxisAngle(new THREE.Vector3(1, 0, 0), HUBBLE_INC);
 
-  const webbA = (t / WEBB_PERIOD) * Math.PI * 2;
-  craft.webb.group.position.set(
-    L2_KM / KM_PER_LOCAL_UNIT + 1.9 * Math.sin(2 * webbA),
-    5.5 * Math.cos(webbA), 4.2 * Math.sin(webbA),
-  );
-  const romanA = (t / ROMAN_PERIOD) * Math.PI * 2 + 1.15;
-  craft.roman.group.position.set(
-    L2_KM / KM_PER_LOCAL_UNIT + 1.45 * Math.sin(2 * romanA),
-    4.6 * Math.cos(romanA), 3.4 * Math.sin(romanA),
-  );
+  craft.webb.group.position.copy(haloLocalAt(t, 'webb'));
+  craft.roman.group.position.copy(haloLocalAt(t, 'roman'));
 }
 
 function applyReferenceFrame() {
   const helio = sim.frame === 'heliocentric';
+  const waveView = sim.view === 'heliofollow';
   sun.visible = helio;
   earthOrbit.visible = helio;
   l2GuideOrbit.visible = helio;
+  waveGroup.visible = helio && $('trailToggle').checked;
+  eclipticGrid.visible = waveView;
   $('sunDirection').hidden = helio;
   $('geometryReadout').hidden = helio || sim.view === 'earth';
 
   if (helio) {
-    const theta = ((sim.timeMs / 1000) / YEAR) * Math.PI * 2;
-    earthSystem.position.set(Math.cos(theta) * AU_RENDER, 0, Math.sin(theta) * AU_RENDER);
-    // local +X stays anti-solar (radially outward from the Sun)
+    const t = sim.timeMs / 1000;
+    const { theta, centre } = earthHelioState(t);
+    earthSystem.position.copy(centre);
     earthSystem.rotation.set(0, -theta, 0);
-    const localScale = sim.readable ? READABLE_HELIO_LOCAL_SCALE : TRUE_HELIO_LOCAL_SCALE;
+    const localScale = currentHelioScale();
     earthSystem.scale.setScalar(localScale);
 
-    earth.scale.setScalar(0.14 / (0.72 * localScale));
-    craft.webb.sprite.scale.setScalar(0.30 / localScale);
-    craft.roman.sprite.scale.setScalar(0.28 / localScale);
+    const earthVisual = waveView ? 0.24 : 0.14;
+    earth.scale.setScalar(earthVisual / (0.72 * localScale));
+    craft.webb.sprite.scale.setScalar((waveView ? 0.48 : 0.30) / localScale);
+    craft.roman.sprite.scale.setScalar((waveView ? 0.44 : 0.28) / localScale);
     craft.hubble.group.visible = false;
     moon.visible = false;
     moonTrail.visible = false;
     hubbleTrail.visible = false;
-    l2.scale.setScalar(0.22 / localScale);
+    l2.scale.setScalar((waveView ? 0.30 : 0.22) / localScale);
     geometryLayer.visible = false;
     haloPlane.visible = false;
     haloGrid.visible = false;
+    webbTrail.visible = false;
+    romanTrail.visible = false;
+    webbTube.visible = false;
+    romanTube.visible = false;
+    rebuildWavePaths();
   } else {
     earthSystem.position.set(0, 0, 0);
     earthSystem.rotation.set(0, 0, 0);
@@ -296,9 +378,13 @@ function applyReferenceFrame() {
     geometryLayer.visible = sim.view === 'system' || sim.view === 'free';
     haloPlane.visible = sim.view === 'l2';
     haloGrid.visible = sim.view === 'l2';
+    webbTrail.visible = $('trailToggle').checked;
+    romanTrail.visible = $('trailToggle').checked;
+    webbTube.visible = $('trailToggle').checked;
+    romanTube.visible = $('trailToggle').checked;
+    waveGroup.visible = false;
+    eclipticGrid.visible = false;
   }
-  webbTrail.visible = $('trailToggle').checked;
-  romanTrail.visible = $('trailToggle').checked;
 }
 
 const VIEWS = {
@@ -317,13 +403,19 @@ const VIEWS = {
   l2: {
     frame: 'rotating', pos: [24, 10, 19], target: [15, 0, 0],
     title: 'Sun–Earth L2 close-up',
-    blurb: 'The faint reference plane passes through L2 and makes the out-of-ecliptic extent of the paths visible.',
+    blurb: 'The bold curves show the predicted halo-like paths; the faint plane makes their out-of-ecliptic extent visible.',
     readout: 'EARTH–L2 ROTATING · CLOSE-UP',
+  },
+  heliofollow: {
+    frame: 'heliocentric', pos: null, target: null,
+    title: 'L2 wave along the ecliptic',
+    blurb: 'The camera travels with Earth while the bold Webb and Roman paths reveal their repeated motion above and below the ecliptic.',
+    readout: 'HELIOCENTRIC · EARTH–L2 FOLLOW',
   },
   helio: {
     frame: 'heliocentric', pos: [0, 30, 36], target: [0, 0, 0],
-    title: 'Heliocentric view',
-    blurb: 'The Sun is fixed. Earth carries L2 radially outward on the anti-solar side during its one-year orbit.',
+    title: 'Heliocentric overview',
+    blurb: 'The Sun is fixed. Earth and the L2 region travel together around the one-year orbit.',
     readout: 'HELIOCENTRIC INERTIAL DISPLAY',
   },
   free: {
@@ -334,28 +426,59 @@ const VIEWS = {
   },
 };
 
+function setHelioFollowCamera() {
+  const t = sim.timeMs / 1000;
+  const { radial, tangent, up, centre } = earthHelioState(t);
+  const target = centre.clone().add(radial.clone().multiplyScalar(2.2));
+  const pos = target.clone()
+    .add(tangent.clone().multiplyScalar(-11))
+    .add(up.clone().multiplyScalar(6.5))
+    .add(radial.clone().multiplyScalar(-2.5));
+  camera.position.copy(pos);
+  controls.target.copy(target);
+  controls.update();
+  sim.followAnchor = centre.clone();
+}
+
+function updateHelioFollowAnchor() {
+  if (sim.view !== 'heliofollow') return;
+  const centre = earthHelioState(sim.timeMs / 1000).centre;
+  if (!sim.followAnchor) {
+    sim.followAnchor = centre.clone();
+    return;
+  }
+  const delta = centre.clone().sub(sim.followAnchor);
+  camera.position.add(delta);
+  controls.target.add(delta);
+  sim.followAnchor.copy(centre);
+}
+
 function setView(name, focus = null) {
   const v = VIEWS[name];
   sim.view = name;
   sim.frame = v.frame;
   sim.focus = focus;
+  sim.followAnchor = null;
   document.querySelectorAll('[data-view]').forEach((b) => b.classList.toggle('active', b.dataset.view === name));
   $('viewTitle').textContent = v.title;
   $('viewBlurb').textContent = v.blurb;
   $('frameReadout').textContent = v.readout;
-  if (v.pos) {
+  if (name === 'heliofollow') {
+    setHelioFollowCamera();
+  } else if (v.pos) {
     camera.position.set(...v.pos);
     controls.target.set(...v.target);
     controls.update();
   }
+  waveKey = '';
   applyReferenceFrame();
 }
 
 function focusCraft(name) {
   const info = {
     hubble: ['Hubble Space Telescope', 'PROPAGATED', 'LEO · ~483 km altitude · 28.5° inclination · ~95 min period. Phase remains illustrative until TLE/SGP4 is connected.'],
-    webb: ['James Webb Space Telescope', 'EDUCATIONAL', 'Sun–Earth L2 region. This loop is still a renderer placeholder until authoritative JWST ephemeris replaces it.'],
-    roman: ['Nancy Grace Roman Space Telescope', 'EDUCATIONAL', 'Sun–Earth L2 region. This loop remains a placeholder while official Roman trajectory products are integrated.'],
+    webb: ['James Webb Space Telescope', 'EDUCATIONAL', 'Sun–Earth L2 region. The bold curve is still a renderer placeholder until authoritative JWST ephemeris replaces it.'],
+    roman: ['Nancy Grace Roman Space Telescope', 'EDUCATIONAL', 'Sun–Earth L2 region. The bold curve remains a placeholder while official Roman trajectory products are integrated.'],
   }[name];
   $('focusName').textContent = info[0];
   $('focusMode').textContent = info[1];
@@ -404,6 +527,7 @@ function tick(now) {
   if (sim.playing) sim.timeMs += dt * sim.rate * 1000;
   resize();
   updateLocalState();
+  updateHelioFollowAnchor();
   applyReferenceFrame();
   followTarget();
   controls.update();
@@ -417,11 +541,12 @@ $('playBtn').addEventListener('click', () => {
   sim.playing = !sim.playing;
   $('playBtn').textContent = sim.playing ? 'Pause' : 'Play';
 });
-$('nowBtn').addEventListener('click', () => { sim.timeMs = Date.now(); });
+$('nowBtn').addEventListener('click', () => { sim.timeMs = Date.now(); waveKey = ''; });
 $('rateSlider').addEventListener('input', setRateFromSlider);
 $('scaleToggle').addEventListener('change', (e) => {
   sim.readable = e.target.checked;
   refreshLocalGeometry();
+  waveKey = '';
   applyReferenceFrame();
 });
 $('trailToggle').addEventListener('change', applyReferenceFrame);
