@@ -11,11 +11,22 @@ Use official mission data and technical documentation as truth sources. Public-f
 - NASA Science — Webb Orbit
   - https://science.nasa.gov/mission/webb/orbit/
   - Use for: qualitative orbit geometry, rationale for L2, public-facing orbit description.
+  - Important visualization point: NASA explicitly describes the L2 geometry as keeping the Sun/Earth/Moon in the same general direction so the sunshield can block them together.
 
 - NASA Science — Webb orbit at Sun–Earth L2
   - https://science.nasa.gov/asset/webb/webbs-orbit-at-sun-earth-lagrange-point-2-l2/
   - Use for: sanity checks on halo-orbit scale and period.
   - Published public values include roughly 250,000–830,000 km distance from L2 and about 168 days per circuit.
+
+- NASA Science — Webb Sunshield
+  - https://science.nasa.gov/mission/webb/webbs-sunshield/
+  - Use for: Sun/Earth/Moon warm-side geometry, sunshield orientation, and thermal explanation.
+  - NASA states that Webb is oriented so the sunshield remains between the Sun/Earth/Moon and the telescope.
+
+- NASA Science — Telescope Overview / How Webb Stays Cold
+  - https://science.nasa.gov/mission/webb/science-overview/science-explainers/telescope-overview/
+  - https://science.nasa.gov/mission/webb/science-overview/science-explainers/how-does-webb-stay-cold/
+  - Use for: the crucial distinction that Webb's halo orbit keeps it out of Earth/Moon shadows, reducing temperature fluctuations while maintaining solar power.
 
 ### Operational / technical orbit documentation
 
@@ -36,6 +47,17 @@ Use official mission data and technical documentation as truth sources. Public-f
   - https://fireballs.ndc.nasa.gov/mem/library/jwst.html
   - Use for: downloadable trajectory product and independent trajectory visualization/reference.
   - Before importing, inspect file frame, epoch/time scale, units, and sampling cadence.
+
+### L2 illumination interpretation for this project
+
+Do **not** describe Webb as "hiding in Earth's shadow." For the educational UI, the better explanation is:
+
+- L2 is on Earth's anti-solar side, but Webb occupies a large halo orbit around the L2 region.
+- NASA explicitly notes that the halo orbit keeps Webb out of Earth and Moon shadows, helping avoid thermal cycling and loss of solar power.
+- The Sun, Earth, and Moon remain in roughly the same part of Webb's sky.
+- Webb's own sunshield, not Earth, creates the protected cold telescope side.
+
+Renderer consequence: Hubble eclipse effects are informative; a permanent orange glow around Webb is not. Prefer sunshield attitude and warm-side/cold-side geometry.
 
 ### Mission history / deployment
 
@@ -89,6 +111,15 @@ Roman launched on 2026-08-30 and entered its transfer toward Sun–Earth L2. The
   - https://roman-docs.stsci.edu/roman-instruments/the-wide-field-instrument/observing-with-the-wfi/wfi-quick-reference
   - Use for: field-of-regard and pointing constraints when attitude/observing simulation is added.
 
+### Roman thermal/illumination interpretation
+
+Roman also benefits from the stable Sun–Earth L2 geometry, but the UI must not copy Webb's exact thermal architecture onto Roman. Until mission-specific post-launch attitude/thermal documentation is ingested:
+
+- show Roman as normally sunlit rather than permanently hidden in Earth's shadow;
+- use a simple Sun-facing orientation/thermal cue;
+- do not draw a Webb-like five-layer sunshield on Roman;
+- keep the copy clearly mission-specific when exact field-of-regard and thermal-angle limits are added later.
+
 ### Technical paper / proceedings starting point
 
 - NASA NTRS — Roman Space Telescope Observatory Build, Test and related mission overview proceedings
@@ -122,9 +153,10 @@ Because Roman is newly launched, prefer newer post-launch products over older pr
   - https://science.nasa.gov/mission/hubble/
   - Use for: mission history, observatory background, servicing timeline links.
 
-- NASA Science — Hubble vs Roman
+- NASA Science — Hubble vs Roman / Hubble vs Webb
   - https://science.nasa.gov/mission/hubble/observatory/hubble-vs-roman/
-  - Use for: educational explanation of why Hubble is in LEO while Roman operates at L2.
+  - https://science.nasa.gov/mission/hubble/observatory/hubble-vs-webb/
+  - Use for: educational explanation of why Hubble is in LEO while Webb/Roman operate at L2.
 
 ### Orbit truth for first implementation
 
@@ -139,6 +171,10 @@ Rules:
 - do not extrapolate a TLE far outside its validity window and call the result historical truth
 - use archived TLEs for historical playback if needed
 - label raw SGP4 output frame correctly (TEME)
+
+### Eclipse visualization
+
+Hubble's low-Earth orbit makes Earth-shadow transitions frequent enough to be meaningful in the renderer. Keep the illumination/dimming effect for Hubble, and later replace the current geometric shadow approximation with umbra/penumbra modeling tied to SGP4 state and Sun ephemeris.
 
 ### Higher-fidelity future path
 
