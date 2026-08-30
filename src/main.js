@@ -60,175 +60,454 @@ function canvasTexture(w, h, draw) {
   return t;
 }
 
-function glowTexture() {
+function glowTexture(warm = true) {
   return canvasTexture(256, 256, (ctx, w, h) => {
-    const g = ctx.createRadialGradient(w/2, h/2, 58, w/2, h/2, 126);
-    g.addColorStop(0, 'rgba(255,220,145,0)');
-    g.addColorStop(.44, 'rgba(255,220,145,0)');
-    g.addColorStop(.63, 'rgba(255,206,105,.72)');
-    g.addColorStop(.78, 'rgba(255,174,70,.18)');
-    g.addColorStop(1, 'rgba(255,150,40,0)');
-    ctx.fillStyle = g; ctx.fillRect(0,0,w,h);
+    const g = ctx.createRadialGradient(w / 2, h / 2, 56, w / 2, h / 2, 126);
+    if (warm) {
+      g.addColorStop(0, 'rgba(255,220,145,0)');
+      g.addColorStop(.43, 'rgba(255,220,145,0)');
+      g.addColorStop(.62, 'rgba(255,210,116,.82)');
+      g.addColorStop(.79, 'rgba(255,164,60,.22)');
+      g.addColorStop(1, 'rgba(255,145,35,0)');
+    } else {
+      g.addColorStop(0, 'rgba(105,190,255,0)');
+      g.addColorStop(.48, 'rgba(105,190,255,0)');
+      g.addColorStop(.66, 'rgba(105,190,255,.45)');
+      g.addColorStop(.82, 'rgba(75,140,220,.12)');
+      g.addColorStop(1, 'rgba(75,140,220,0)');
+    }
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, w, h);
   });
 }
-const SUN_GLOW_TEXTURE = glowTexture();
+const SUN_GLOW_TEXTURE = glowTexture(true);
+const COLD_GLOW_TEXTURE = glowTexture(false);
 
 function planetTexture(kind) {
   const seed = kind === 'earth' ? 73 : kind === 'moon' ? 116 : 23;
   return canvasTexture(kind === 'earth' ? 1024 : 768, kind === 'earth' ? 512 : 384, (ctx, w, h) => {
     const rnd = seeded(seed);
     if (kind === 'earth') {
-      const ocean = ctx.createLinearGradient(0,0,0,h);
-      ocean.addColorStop(0,'#173d70'); ocean.addColorStop(.5,'#17638f'); ocean.addColorStop(1,'#102e5c');
-      ctx.fillStyle=ocean; ctx.fillRect(0,0,w,h);
-      for (let n=0;n<28;n++) {
-        const cx=rnd()*w, cy=(.14+rnd()*.72)*h, rx=18+rnd()*72, ry=10+rnd()*38;
-        ctx.save(); ctx.translate(cx,cy); ctx.rotate((rnd()-.5)*1.2); ctx.beginPath();
-        for(let i=0;i<20;i++){const a=i/20*Math.PI*2,r=.65+rnd()*.55;i?ctx.lineTo(Math.cos(a)*rx*r,Math.sin(a)*ry*(.75+rnd()*.4)):ctx.moveTo(Math.cos(a)*rx*r,Math.sin(a)*ry);}
-        ctx.closePath(); ctx.fillStyle=n%4===0?'#8a7950':n%3===0?'#587845':'#426d48'; ctx.fill(); ctx.restore();
+      const ocean = ctx.createLinearGradient(0, 0, 0, h);
+      ocean.addColorStop(0, '#173d70'); ocean.addColorStop(.5, '#17638f'); ocean.addColorStop(1, '#102e5c');
+      ctx.fillStyle = ocean; ctx.fillRect(0, 0, w, h);
+      for (let n = 0; n < 28; n++) {
+        const cx = rnd() * w, cy = (.14 + rnd() * .72) * h, rx = 18 + rnd() * 72, ry = 10 + rnd() * 38;
+        ctx.save(); ctx.translate(cx, cy); ctx.rotate((rnd() - .5) * 1.2); ctx.beginPath();
+        for (let i = 0; i < 20; i++) {
+          const a = i / 20 * Math.PI * 2, r = .65 + rnd() * .55;
+          const x = Math.cos(a) * rx * r, y = Math.sin(a) * ry * (.75 + rnd() * .4);
+          i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+        }
+        ctx.closePath(); ctx.fillStyle = n % 4 === 0 ? '#8a7950' : n % 3 === 0 ? '#587845' : '#426d48'; ctx.fill(); ctx.restore();
       }
-      ctx.globalAlpha=.22; ctx.fillStyle='#eef5f5';
-      for(let i=0;i<70;i++){ctx.beginPath();ctx.ellipse(rnd()*w,rnd()*h,10+rnd()*28,2+rnd()*7,rnd()*Math.PI,0,Math.PI*2);ctx.fill();}
-      ctx.globalAlpha=1;
     } else if (kind === 'moon') {
-      ctx.fillStyle='#aaa8a1'; ctx.fillRect(0,0,w,h);
-      for(let i=0;i<150;i++){
-        const x=rnd()*w,y=rnd()*h,r=2+rnd()*16;
-        ctx.fillStyle=`rgba(45,47,48,${.07+rnd()*.18})`;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle = '#aaa8a1'; ctx.fillRect(0, 0, w, h);
+      for (let i = 0; i < 150; i++) {
+        const x = rnd() * w, y = rnd() * h, r = 2 + rnd() * 16;
+        ctx.fillStyle = `rgba(45,47,48,${.07 + rnd() * .18})`; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
       }
     } else {
-      const g=ctx.createLinearGradient(0,0,0,h);g.addColorStop(0,'#ffd36a');g.addColorStop(.45,'#ffad2f');g.addColorStop(1,'#e87517');ctx.fillStyle=g;ctx.fillRect(0,0,w,h);
-      for(let i=0;i<1200;i++){ctx.fillStyle=rnd()>.45?`rgba(255,245,183,${.05+rnd()*.14})`:`rgba(151,66,8,${.03+rnd()*.09})`;ctx.beginPath();ctx.arc(rnd()*w,rnd()*h,.5+rnd()*2.5,0,Math.PI*2);ctx.fill();}
+      const g = ctx.createLinearGradient(0, 0, 0, h);
+      g.addColorStop(0, '#ffd36a'); g.addColorStop(.45, '#ffad2f'); g.addColorStop(1, '#e87517');
+      ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+      for (let i = 0; i < 1200; i++) {
+        ctx.fillStyle = rnd() > .45 ? `rgba(255,245,183,${.05 + rnd() * .14})` : `rgba(151,66,8,${.03 + rnd() * .09})`;
+        ctx.beginPath(); ctx.arc(rnd() * w, rnd() * h, .5 + rnd() * 2.5, 0, Math.PI * 2); ctx.fill();
+      }
     }
   });
 }
 
-function makeStars(count=2200){
-  const g=new THREE.BufferGeometry(),a=new Float32Array(count*3),rnd=seeded(20260830);
-  for(let i=0;i<count;i++){const r=100+rnd()*180,z=rnd()*2-1,p=rnd()*Math.PI*2,q=Math.sqrt(1-z*z);a[i*3]=r*q*Math.cos(p);a[i*3+1]=r*z;a[i*3+2]=r*q*Math.sin(p);}
-  g.setAttribute('position',new THREE.BufferAttribute(a,3));
-  scene.add(new THREE.Points(g,new THREE.PointsMaterial({color:0xaebed4,size:.075,transparent:true,opacity:.66})));
+function makeStars(count = 2200) {
+  const g = new THREE.BufferGeometry(), a = new Float32Array(count * 3), rnd = seeded(20260830);
+  for (let i = 0; i < count; i++) {
+    const r = 100 + rnd() * 180, z = rnd() * 2 - 1, p = rnd() * Math.PI * 2, q = Math.sqrt(1 - z * z);
+    a[i * 3] = r * q * Math.cos(p); a[i * 3 + 1] = r * z; a[i * 3 + 2] = r * q * Math.sin(p);
+  }
+  g.setAttribute('position', new THREE.BufferAttribute(a, 3));
+  scene.add(new THREE.Points(g, new THREE.PointsMaterial({ color: 0xaebed4, size: .075, transparent: true, opacity: .66 })));
 }
 makeStars();
 
-function sphere(radius, material){return new THREE.Mesh(new THREE.SphereGeometry(radius,48,30),material);}
-function circle(radius,color,opacity=.3,n=320){return new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(Array.from({length:n},(_,i)=>{const a=i/n*Math.PI*2;return new THREE.Vector3(Math.cos(a)*radius,0,Math.sin(a)*radius);})),new THREE.LineBasicMaterial({color,transparent:true,opacity}));}
-function orbitLine(color,opacity=.35){return new THREE.LineLoop(new THREE.BufferGeometry(),new THREE.LineBasicMaterial({color,transparent:true,opacity}));}
-function tubeFromPoints(points,color,radius=.06,opacity=.78,closed=true){return new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points,closed,'centripetal'),Math.max(96,points.length),radius,6,closed),new THREE.MeshBasicMaterial({color,transparent:true,opacity,depthWrite:false}));}
-
-const earthSystem=new THREE.Group();scene.add(earthSystem);
-const earth=sphere(.72,new THREE.MeshStandardMaterial({map:planetTexture('earth'),roughness:.82,color:0xffffff}));
-const moon=sphere(.18,new THREE.MeshStandardMaterial({map:planetTexture('moon'),roughness:.94,color:0xffffff}));
-earthSystem.add(earth,moon);
-const atmosphere=new THREE.Mesh(new THREE.SphereGeometry(.748,48,30),new THREE.MeshBasicMaterial({color:0x78c9ff,transparent:true,opacity:.13,side:THREE.BackSide,blending:THREE.AdditiveBlending}));earth.add(atmosphere);
-
-const moonTrail=orbitLine(0x718096,.16),hubbleTrail=orbitLine(0xdcecff,.52),webbTrail=orbitLine(0xefb45d,.82),romanTrail=orbitLine(0xb88cff,.76);earthSystem.add(moonTrail,hubbleTrail,webbTrail,romanTrail);
-
-const geometryLayer=new THREE.Group();earthSystem.add(geometryLayer);
-geometryLayer.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(.85,0,0),new THREE.Vector3(L2_KM/KM_PER_LOCAL_UNIT,0,0)]),new THREE.LineBasicMaterial({color:0x7892a9,transparent:true,opacity:.28})));
-for(const x of [5,10,15])geometryLayer.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(x,-.12,0),new THREE.Vector3(x,.12,0)]),new THREE.LineBasicMaterial({color:0x7892a9,transparent:true,opacity:x===15?.38:.20})));
-
-const l2=new THREE.Group();const l2Mat=new THREE.LineBasicMaterial({color:0x86a6bd,transparent:true,opacity:.40});
-l2.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-.18,0,0),new THREE.Vector3(.18,0,0),new THREE.Vector3(0,-.18,0),new THREE.Vector3(0,.18,0),new THREE.Vector3(0,0,-.18),new THREE.Vector3(0,0,.18)]),l2Mat));
-l2.add(circle(.30,0x86a6bd,.40,80));l2.children[1].rotation.z=Math.PI/2;l2.position.x=L2_KM/KM_PER_LOCAL_UNIT;earthSystem.add(l2);
-const haloPlane=new THREE.Mesh(new THREE.PlaneGeometry(12,10),new THREE.MeshBasicMaterial({color:0x7899b4,transparent:true,opacity:.035,side:THREE.DoubleSide,depthWrite:false}));haloPlane.rotation.y=Math.PI/2;haloPlane.position.x=L2_KM/KM_PER_LOCAL_UNIT;earthSystem.add(haloPlane);
-const haloGrid=new THREE.GridHelper(10,10,0x6f89a0,0x526778);haloGrid.rotation.z=Math.PI/2;haloGrid.position.x=L2_KM/KM_PER_LOCAL_UNIT;haloGrid.material.transparent=true;haloGrid.material.opacity=.08;earthSystem.add(haloGrid);
-
-function spacecraft(url,fallbackColor,scale){
-  const group=new THREE.Group();
-  const marker=new THREE.Mesh(new THREE.SphereGeometry(.035,16,10),new THREE.MeshBasicMaterial({color:fallbackColor}));group.add(marker);
-  const material=new THREE.SpriteMaterial({transparent:true,depthWrite:false,alphaTest:.04});
-  const sprite=new THREE.Sprite(material);sprite.scale.setScalar(scale);group.add(sprite);
-  const glowMat=new THREE.SpriteMaterial({map:SUN_GLOW_TEXTURE,color:0xffd07a,transparent:true,opacity:.22,depthWrite:false,blending:THREE.AdditiveBlending});
-  const glow=new THREE.Sprite(glowMat);glow.scale.setScalar(scale*1.75);group.add(glow);
-  new THREE.TextureLoader().load(url,t=>{t.colorSpace=THREE.SRGBColorSpace;material.map=t;material.needsUpdate=true;marker.visible=false;});
-  earthSystem.add(group);
-  return{group,sprite,marker,material,glow,glowMat,baseScale:scale,sunlit:true,pulse:0};
+function sphere(radius, material) { return new THREE.Mesh(new THREE.SphereGeometry(radius, 48, 30), material); }
+function circle(radius, color, opacity = .3, n = 320) {
+  return new THREE.LineLoop(
+    new THREE.BufferGeometry().setFromPoints(Array.from({ length: n }, (_, i) => {
+      const a = i / n * Math.PI * 2;
+      return new THREE.Vector3(Math.cos(a) * radius, 0, Math.sin(a) * radius);
+    })),
+    new THREE.LineBasicMaterial({ color, transparent: true, opacity }),
+  );
 }
-const craft={hubble:spacecraft('./public/assets/spacecraft/hubble.png',0xdcecff,.55),webb:spacecraft('./public/assets/spacecraft/jwst.png',0xefb45d,1.25),roman:spacecraft('./public/assets/spacecraft/roman.png',0xb88cff,1.15)};
+function orbitLine(color, opacity = .35) { return new THREE.LineLoop(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color, transparent: true, opacity })); }
+function tubeFromPoints(points, color, radius = .06, opacity = .78, closed = true) {
+  return new THREE.Mesh(
+    new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points, closed, 'centripetal'), Math.max(96, points.length), radius, 6, closed),
+    new THREE.MeshBasicMaterial({ color, transparent: true, opacity, depthWrite: false }),
+  );
+}
 
-function loopPts(rx,ry,rz,phase=0,n=240){return Array.from({length:n},(_,i)=>{const a=i/n*Math.PI*2+phase;return new THREE.Vector3(L2_KM/KM_PER_LOCAL_UNIT+rx*Math.sin(2*a),ry*Math.cos(a),rz*Math.sin(a));});}
-const webbLocalPts=loopPts(1.9,5.5,4.2),romanLocalPts=loopPts(1.45,4.6,3.4,1.15);webbTrail.geometry.setFromPoints(webbLocalPts);romanTrail.geometry.setFromPoints(romanLocalPts);
-const webbTube=tubeFromPoints(webbLocalPts,0xefb45d,.075,.72,true),romanTube=tubeFromPoints(romanLocalPts,0xb88cff,.068,.67,true);earthSystem.add(webbTube,romanTube);
-function localCircle(radius,inc,n=180){return Array.from({length:n},(_,i)=>{const a=i/n*Math.PI*2;return new THREE.Vector3(Math.cos(a)*radius,0,Math.sin(a)*radius).applyAxisAngle(new THREE.Vector3(1,0,0),inc);});}
+const earthSystem = new THREE.Group();
+scene.add(earthSystem);
+const earth = sphere(.72, new THREE.MeshStandardMaterial({ map: planetTexture('earth'), roughness: .82, color: 0xffffff }));
+const moon = sphere(.18, new THREE.MeshStandardMaterial({ map: planetTexture('moon'), roughness: .94, color: 0xffffff }));
+earthSystem.add(earth, moon);
+const atmosphere = new THREE.Mesh(
+  new THREE.SphereGeometry(.748, 48, 30),
+  new THREE.MeshBasicMaterial({ color: 0x78c9ff, transparent: true, opacity: .13, side: THREE.BackSide, blending: THREE.AdditiveBlending }),
+);
+earth.add(atmosphere);
 
-const sun=sphere(1.15,new THREE.MeshStandardMaterial({map:planetTexture('sun'),emissiveMap:planetTexture('sun'),emissive:0xff8b18,emissiveIntensity:1.55,color:0xffffff,roughness:1}));scene.add(sun);
-const corona=new THREE.Sprite(new THREE.SpriteMaterial({map:canvasTexture(256,256,(ctx,w,h)=>{const g=ctx.createRadialGradient(w/2,h/2,35,w/2,h/2,w/2);g.addColorStop(0,'rgba(255,202,92,.22)');g.addColorStop(.45,'rgba(255,156,43,.08)');g.addColorStop(1,'rgba(255,125,20,0)');ctx.fillStyle=g;ctx.fillRect(0,0,w,h);}),transparent:true,depthWrite:false,blending:THREE.AdditiveBlending}));corona.scale.set(4.2,4.2,1);sun.add(corona);
-const earthOrbit=circle(AU_RENDER,0x38516f,.34,360),l2GuideOrbit=circle(AU_RENDER+L2_HELIO_OFFSET,0x597086,.20,360);scene.add(earthOrbit,l2GuideOrbit);sun.visible=false;earthOrbit.visible=false;l2GuideOrbit.visible=false;
-const eclipticGrid=new THREE.GridHelper(64,32,0x526f8b,0x33475c);eclipticGrid.material.transparent=true;eclipticGrid.material.opacity=.10;eclipticGrid.visible=false;scene.add(eclipticGrid);
-const waveGroup=new THREE.Group();scene.add(waveGroup);let waveKey='';
+const moonTrail = orbitLine(0x718096, .16);
+const hubbleTrail = orbitLine(0xdcecff, .52);
+const webbTrail = orbitLine(0xefb45d, .82);
+const romanTrail = orbitLine(0xb88cff, .76);
+earthSystem.add(moonTrail, hubbleTrail, webbTrail, romanTrail);
 
-function earthHelioState(tSec){const theta=tSec/YEAR*Math.PI*2,radial=new THREE.Vector3(Math.cos(theta),0,Math.sin(theta)),tangent=new THREE.Vector3(-Math.sin(theta),0,Math.cos(theta));return{theta,radial,tangent,up:new THREE.Vector3(0,1,0),centre:radial.clone().multiplyScalar(AU_RENDER)};}
-function haloLocalAt(tSec,which){if(which==='webb'){const a=tSec/WEBB_PERIOD*Math.PI*2;return new THREE.Vector3(L2_KM/KM_PER_LOCAL_UNIT+1.9*Math.sin(2*a),5.5*Math.cos(a),4.2*Math.sin(a));}const a=tSec/ROMAN_PERIOD*Math.PI*2+1.15;return new THREE.Vector3(L2_KM/KM_PER_LOCAL_UNIT+1.45*Math.sin(2*a),4.6*Math.cos(a),3.4*Math.sin(a));}
-function localToHelio(local,tSec,scale){const{radial,tangent,up,centre}=earthHelioState(tSec);return centre.clone().add(radial.multiplyScalar(local.x*scale)).add(up.multiplyScalar(local.y*scale)).add(tangent.multiplyScalar(local.z*scale));}
+const geometryLayer = new THREE.Group();
+earthSystem.add(geometryLayer);
+geometryLayer.add(new THREE.Line(
+  new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(.85, 0, 0), new THREE.Vector3(L2_KM / KM_PER_LOCAL_UNIT, 0, 0)]),
+  new THREE.LineBasicMaterial({ color: 0x7892a9, transparent: true, opacity: .28 }),
+));
+for (const x of [5, 10, 15]) {
+  geometryLayer.add(new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(x, -.12, 0), new THREE.Vector3(x, .12, 0)]),
+    new THREE.LineBasicMaterial({ color: 0x7892a9, transparent: true, opacity: x === 15 ? .38 : .20 }),
+  ));
+}
 
-const sim={timeMs:Date.now(),playing:true,rate:600,view:'system',frame:'rotating',readable:true,last:performance.now(),focus:null,followAnchor:null};
-function currentHelioScale(){if(!sim.readable)return TRUE_HELIO_LOCAL_SCALE;return sim.view==='heliofollow'?WAVE_LOCAL_SCALE:OVERVIEW_LOCAL_SCALE;}
-function rebuildWavePaths(force=false){const centreT=sim.timeMs/1000,scale=currentHelioScale(),key=`${Math.floor(centreT/(7*DAY))}:${sim.readable}:${sim.view}`;if(!force&&key===waveKey)return;waveKey=key;while(waveGroup.children.length){const c=waveGroup.children.pop();c.geometry?.dispose();c.material?.dispose();}const w=[],r=[];for(let i=0;i<360;i++){const t=centreT-YEAR/2+i/359*YEAR;w.push(localToHelio(haloLocalAt(t,'webb'),t,scale));r.push(localToHelio(haloLocalAt(t,'roman'),t,scale));}const thick=sim.view==='heliofollow';waveGroup.add(tubeFromPoints(w,0xefb45d,thick?.085:.055,thick?.86:.62,false));waveGroup.add(tubeFromPoints(r,0xb88cff,thick?.078:.05,thick?.82:.58,false));}
+const l2 = new THREE.Group();
+const l2Mat = new THREE.LineBasicMaterial({ color: 0x86a6bd, transparent: true, opacity: .40 });
+l2.add(new THREE.LineSegments(
+  new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(-.18, 0, 0), new THREE.Vector3(.18, 0, 0),
+    new THREE.Vector3(0, -.18, 0), new THREE.Vector3(0, .18, 0),
+    new THREE.Vector3(0, 0, -.18), new THREE.Vector3(0, 0, .18),
+  ]), l2Mat,
+));
+l2.add(circle(.30, 0x86a6bd, .40, 80));
+l2.children[1].rotation.z = Math.PI / 2;
+l2.position.x = L2_KM / KM_PER_LOCAL_UNIT;
+earthSystem.add(l2);
+const haloPlane = new THREE.Mesh(
+  new THREE.PlaneGeometry(12, 10),
+  new THREE.MeshBasicMaterial({ color: 0x7899b4, transparent: true, opacity: .035, side: THREE.DoubleSide, depthWrite: false }),
+);
+haloPlane.rotation.y = Math.PI / 2; haloPlane.position.x = L2_KM / KM_PER_LOCAL_UNIT; earthSystem.add(haloPlane);
+const haloGrid = new THREE.GridHelper(10, 10, 0x6f89a0, 0x526778);
+haloGrid.rotation.z = Math.PI / 2; haloGrid.position.x = L2_KM / KM_PER_LOCAL_UNIT; haloGrid.material.transparent = true; haloGrid.material.opacity = .08; earthSystem.add(haloGrid);
 
-function refreshLocalGeometry(){const mr=MOON_ORBIT_KM/KM_PER_LOCAL_UNIT*(sim.readable?1.45:1),hr=sim.readable?1.05:HUBBLE_RADIUS_KM/KM_PER_LOCAL_UNIT;moonTrail.geometry.dispose();moonTrail.geometry=new THREE.BufferGeometry().setFromPoints(localCircle(mr,MOON_INC));hubbleTrail.geometry.dispose();hubbleTrail.geometry=new THREE.BufferGeometry().setFromPoints(localCircle(hr,HUBBLE_INC));}
+function makeSunRays(scale, color = 0xffc66a) {
+  const g = new THREE.Group();
+  const mat = new THREE.LineBasicMaterial({ color, transparent: true, opacity: .58, blending: THREE.AdditiveBlending });
+  const offsets = [[0, 0], [.10, .08], [-.10, -.08]];
+  for (const [y, z] of offsets) {
+    g.add(new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(-1.45 * scale, y * scale, z * scale),
+        new THREE.Vector3(-.34 * scale, y * .18 * scale, z * .18 * scale),
+      ]), mat,
+    ));
+  }
+  return { group: g, material: mat };
+}
+
+function spacecraft(url, fallbackColor, scale, l2Craft = false) {
+  const group = new THREE.Group();
+  const marker = new THREE.Mesh(new THREE.SphereGeometry(.035, 16, 10), new THREE.MeshBasicMaterial({ color: fallbackColor }));
+  group.add(marker);
+  const material = new THREE.SpriteMaterial({ transparent: true, depthWrite: false, alphaTest: .04 });
+  const sprite = new THREE.Sprite(material); sprite.scale.setScalar(scale); group.add(sprite);
+
+  const glowMat = new THREE.SpriteMaterial({ map: SUN_GLOW_TEXTURE, color: 0xffd07a, transparent: true, opacity: l2Craft ? .40 : .22, depthWrite: false, blending: THREE.AdditiveBlending });
+  const glow = new THREE.Sprite(glowMat); glow.scale.setScalar(scale * (l2Craft ? 2.0 : 1.75)); group.add(glow);
+
+  const warmSideMat = new THREE.SpriteMaterial({ map: SUN_GLOW_TEXTURE, color: 0xffc266, transparent: true, opacity: l2Craft ? .28 : .10, depthWrite: false, blending: THREE.AdditiveBlending });
+  const warmSide = new THREE.Sprite(warmSideMat); group.add(warmSide);
+  const coldSideMat = new THREE.SpriteMaterial({ map: COLD_GLOW_TEXTURE, color: 0x82c8ff, transparent: true, opacity: l2Craft ? .16 : .05, depthWrite: false, blending: THREE.AdditiveBlending });
+  const coldSide = new THREE.Sprite(coldSideMat); group.add(coldSide);
+
+  const rays = makeSunRays(scale, l2Craft ? 0xffc96f : 0xffd58b);
+  group.add(rays.group);
+  rays.group.visible = l2Craft;
+
+  new THREE.TextureLoader().load(url, (t) => {
+    t.colorSpace = THREE.SRGBColorSpace;
+    material.map = t; material.needsUpdate = true; marker.visible = false;
+  });
+  earthSystem.add(group);
+  return {
+    group, sprite, marker, material, glow, glowMat, warmSide, warmSideMat, coldSide, coldSideMat,
+    sunRays: rays.group, sunRayMat: rays.material, baseScale: scale, l2Craft, sunlit: true, pulse: 0,
+  };
+}
+const craft = {
+  hubble: spacecraft('./public/assets/spacecraft/hubble.png', 0xdcecff, .55, false),
+  webb: spacecraft('./public/assets/spacecraft/jwst.png', 0xefb45d, 1.25, true),
+  roman: spacecraft('./public/assets/spacecraft/roman.png', 0xb88cff, 1.15, true),
+};
+
+function loopPts(rx, ry, rz, phase = 0, n = 240) {
+  return Array.from({ length: n }, (_, i) => {
+    const a = i / n * Math.PI * 2 + phase;
+    return new THREE.Vector3(L2_KM / KM_PER_LOCAL_UNIT + rx * Math.sin(2 * a), ry * Math.cos(a), rz * Math.sin(a));
+  });
+}
+const webbLocalPts = loopPts(1.9, 5.5, 4.2);
+const romanLocalPts = loopPts(1.45, 4.6, 3.4, 1.15);
+webbTrail.geometry.setFromPoints(webbLocalPts); romanTrail.geometry.setFromPoints(romanLocalPts);
+const webbTube = tubeFromPoints(webbLocalPts, 0xefb45d, .075, .72, true);
+const romanTube = tubeFromPoints(romanLocalPts, 0xb88cff, .068, .67, true);
+earthSystem.add(webbTube, romanTube);
+function localCircle(radius, inc, n = 180) {
+  return Array.from({ length: n }, (_, i) => {
+    const a = i / n * Math.PI * 2;
+    return new THREE.Vector3(Math.cos(a) * radius, 0, Math.sin(a) * radius).applyAxisAngle(new THREE.Vector3(1, 0, 0), inc);
+  });
+}
+
+const sun = sphere(1.15, new THREE.MeshStandardMaterial({
+  map: planetTexture('sun'), emissiveMap: planetTexture('sun'), emissive: 0xff8b18, emissiveIntensity: 1.55, color: 0xffffff, roughness: 1,
+}));
+scene.add(sun);
+const corona = new THREE.Sprite(new THREE.SpriteMaterial({
+  map: canvasTexture(256, 256, (ctx, w, h) => {
+    const g = ctx.createRadialGradient(w / 2, h / 2, 35, w / 2, h / 2, w / 2);
+    g.addColorStop(0, 'rgba(255,202,92,.22)'); g.addColorStop(.45, 'rgba(255,156,43,.08)'); g.addColorStop(1, 'rgba(255,125,20,0)');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+  }), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+}));
+corona.scale.set(4.2, 4.2, 1); sun.add(corona);
+const earthOrbit = circle(AU_RENDER, 0x38516f, .34, 360);
+const l2GuideOrbit = circle(AU_RENDER + L2_HELIO_OFFSET, 0x597086, .20, 360);
+scene.add(earthOrbit, l2GuideOrbit); sun.visible = false; earthOrbit.visible = false; l2GuideOrbit.visible = false;
+const eclipticGrid = new THREE.GridHelper(64, 32, 0x526f8b, 0x33475c);
+eclipticGrid.material.transparent = true; eclipticGrid.material.opacity = .10; eclipticGrid.visible = false; scene.add(eclipticGrid);
+const waveGroup = new THREE.Group(); scene.add(waveGroup); let waveKey = '';
+
+function earthHelioState(tSec) {
+  const theta = tSec / YEAR * Math.PI * 2;
+  const radial = new THREE.Vector3(Math.cos(theta), 0, Math.sin(theta));
+  const tangent = new THREE.Vector3(-Math.sin(theta), 0, Math.cos(theta));
+  return { theta, radial, tangent, up: new THREE.Vector3(0, 1, 0), centre: radial.clone().multiplyScalar(AU_RENDER) };
+}
+function haloLocalAt(tSec, which) {
+  if (which === 'webb') {
+    const a = tSec / WEBB_PERIOD * Math.PI * 2;
+    return new THREE.Vector3(L2_KM / KM_PER_LOCAL_UNIT + 1.9 * Math.sin(2 * a), 5.5 * Math.cos(a), 4.2 * Math.sin(a));
+  }
+  const a = tSec / ROMAN_PERIOD * Math.PI * 2 + 1.15;
+  return new THREE.Vector3(L2_KM / KM_PER_LOCAL_UNIT + 1.45 * Math.sin(2 * a), 4.6 * Math.cos(a), 3.4 * Math.sin(a));
+}
+function localToHelio(local, tSec, scale) {
+  const { radial, tangent, up, centre } = earthHelioState(tSec);
+  return centre.clone().add(radial.multiplyScalar(local.x * scale)).add(up.multiplyScalar(local.y * scale)).add(tangent.multiplyScalar(local.z * scale));
+}
+
+const sim = { timeMs: Date.now(), playing: true, rate: 600, view: 'system', frame: 'rotating', readable: true, last: performance.now(), focus: null, followAnchor: null, realElapsed: 0 };
+function currentHelioScale() { if (!sim.readable) return TRUE_HELIO_LOCAL_SCALE; return sim.view === 'heliofollow' ? WAVE_LOCAL_SCALE : OVERVIEW_LOCAL_SCALE; }
+function rebuildWavePaths(force = false) {
+  const centreT = sim.timeMs / 1000, scale = currentHelioScale(), key = `${Math.floor(centreT / (7 * DAY))}:${sim.readable}:${sim.view}`;
+  if (!force && key === waveKey) return;
+  waveKey = key;
+  while (waveGroup.children.length) { const c = waveGroup.children.pop(); c.geometry?.dispose(); c.material?.dispose(); }
+  const w = [], r = [];
+  for (let i = 0; i < 360; i++) {
+    const t = centreT - YEAR / 2 + i / 359 * YEAR;
+    w.push(localToHelio(haloLocalAt(t, 'webb'), t, scale));
+    r.push(localToHelio(haloLocalAt(t, 'roman'), t, scale));
+  }
+  const thick = sim.view === 'heliofollow';
+  waveGroup.add(tubeFromPoints(w, 0xefb45d, thick ? .085 : .055, thick ? .86 : .62, false));
+  waveGroup.add(tubeFromPoints(r, 0xb88cff, thick ? .078 : .05, thick ? .82 : .58, false));
+}
+
+function refreshLocalGeometry() {
+  const mr = MOON_ORBIT_KM / KM_PER_LOCAL_UNIT * (sim.readable ? 1.45 : 1);
+  const hr = sim.readable ? 1.05 : HUBBLE_RADIUS_KM / KM_PER_LOCAL_UNIT;
+  moonTrail.geometry.dispose(); moonTrail.geometry = new THREE.BufferGeometry().setFromPoints(localCircle(mr, MOON_INC));
+  hubbleTrail.geometry.dispose(); hubbleTrail.geometry = new THREE.BufferGeometry().setFromPoints(localCircle(hr, HUBBLE_INC));
+}
 refreshLocalGeometry();
 
-function physicalStatesKm(){
-  const t=sim.timeMs/1000;
-  const ma=t/MOON_PERIOD*Math.PI*2;
-  const moonKm=new THREE.Vector3(Math.cos(ma)*MOON_ORBIT_KM,0,Math.sin(ma)*MOON_ORBIT_KM).applyAxisAngle(new THREE.Vector3(1,0,0),MOON_INC);
-  const ha=t/HUBBLE_PERIOD*Math.PI*2;
-  const hubbleKm=new THREE.Vector3(Math.cos(ha)*HUBBLE_RADIUS_KM,0,Math.sin(ha)*HUBBLE_RADIUS_KM).applyAxisAngle(new THREE.Vector3(1,0,0),HUBBLE_INC);
-  const webbKm=haloLocalAt(t,'webb').multiplyScalar(KM_PER_LOCAL_UNIT);
-  const romanKm=haloLocalAt(t,'roman').multiplyScalar(KM_PER_LOCAL_UNIT);
-  return{moonKm,hubbleKm,webbKm,romanKm};
+function physicalStatesKm() {
+  const t = sim.timeMs / 1000;
+  const ma = t / MOON_PERIOD * Math.PI * 2;
+  const moonKm = new THREE.Vector3(Math.cos(ma) * MOON_ORBIT_KM, 0, Math.sin(ma) * MOON_ORBIT_KM).applyAxisAngle(new THREE.Vector3(1, 0, 0), MOON_INC);
+  const ha = t / HUBBLE_PERIOD * Math.PI * 2;
+  const hubbleKm = new THREE.Vector3(Math.cos(ha) * HUBBLE_RADIUS_KM, 0, Math.sin(ha) * HUBBLE_RADIUS_KM).applyAxisAngle(new THREE.Vector3(1, 0, 0), HUBBLE_INC);
+  const webbKm = haloLocalAt(t, 'webb').multiplyScalar(KM_PER_LOCAL_UNIT);
+  const romanKm = haloLocalAt(t, 'roman').multiplyScalar(KM_PER_LOCAL_UNIT);
+  return { moonKm, hubbleKm, webbKm, romanKm };
 }
 
-function blockedBySphere(craftKm,bodyKm,radiusKm){
-  // Sun is effectively at -X infinity in this Earth-local frame. A body blocks
-  // sunlight only if it lies sunward of the spacecraft and the ray misses its
-  // centre by less than its physical radius.
-  if(bodyKm.x>=craftKm.x)return false;
-  const dy=craftKm.y-bodyKm.y,dz=craftKm.z-bodyKm.z;
-  return dy*dy+dz*dz<radiusKm*radiusKm;
+function blockedBySphere(craftKm, bodyKm, radiusKm) {
+  if (bodyKm.x >= craftKm.x) return false;
+  const dy = craftKm.y - bodyKm.y, dz = craftKm.z - bodyKm.z;
+  return dy * dy + dz * dz < radiusKm * radiusKm;
 }
 
-function updateSunlight(dt){
-  const p=physicalStatesKm();
-  const states={
-    hubble:!(blockedBySphere(p.hubbleKm,new THREE.Vector3(0,0,0),EARTH_RADIUS_KM)||blockedBySphere(p.hubbleKm,p.moonKm,MOON_RADIUS_KM)),
-    webb:!(blockedBySphere(p.webbKm,new THREE.Vector3(0,0,0),EARTH_RADIUS_KM)||blockedBySphere(p.webbKm,p.moonKm,MOON_RADIUS_KM)),
-    roman:!(blockedBySphere(p.romanKm,new THREE.Vector3(0,0,0),EARTH_RADIUS_KM)||blockedBySphere(p.romanKm,p.moonKm,MOON_RADIUS_KM)),
+function updateSunlight(dt) {
+  sim.realElapsed += dt;
+  const p = physicalStatesKm();
+  const states = {
+    hubble: !(blockedBySphere(p.hubbleKm, new THREE.Vector3(0, 0, 0), EARTH_RADIUS_KM) || blockedBySphere(p.hubbleKm, p.moonKm, MOON_RADIUS_KM)),
+    webb: !(blockedBySphere(p.webbKm, new THREE.Vector3(0, 0, 0), EARTH_RADIUS_KM) || blockedBySphere(p.webbKm, p.moonKm, MOON_RADIUS_KM)),
+    roman: !(blockedBySphere(p.romanKm, new THREE.Vector3(0, 0, 0), EARTH_RADIUS_KM) || blockedBySphere(p.romanKm, p.moonKm, MOON_RADIUS_KM)),
   };
-  for(const [name,isSunlit] of Object.entries(states)){
-    const c=craft[name];
-    if(isSunlit&&!c.sunlit)c.pulse=1;
-    c.sunlit=isSunlit;
-    c.pulse=Math.max(0,c.pulse-dt*1.1);
-    const pulse=Math.sin(c.pulse*Math.PI)*.72;
-    c.glowMat.opacity=isSunlit?.18+pulse:.018;
-    const base=c.sprite.scale.x||c.baseScale;
-    c.glow.scale.setScalar(base*(isSunlit?1.65+1.15*pulse:1.45));
-    c.material.opacity=isSunlit?1:.48;
+  for (const [name, isSunlit] of Object.entries(states)) {
+    const c = craft[name];
+    if (isSunlit && !c.sunlit) c.pulse = 1;
+    c.sunlit = isSunlit;
+    c.pulse = Math.max(0, c.pulse - dt * 1.1);
+    const pulse = Math.sin(c.pulse * Math.PI) * .72;
+    const base = c.sprite.scale.x || c.baseScale;
+    const breathe = c.l2Craft && isSunlit ? .055 * (1 + Math.sin(sim.realElapsed * 1.7)) : 0;
+    const steady = c.l2Craft ? .38 : .18;
+    c.glowMat.opacity = isSunlit ? steady + breathe + pulse : .018;
+    c.glow.scale.setScalar(base * (isSunlit ? (c.l2Craft ? 2.05 : 1.65) + .85 * pulse : 1.45));
+    c.material.opacity = isSunlit ? 1 : .48;
+
+    c.warmSide.visible = isSunlit;
+    c.coldSide.visible = isSunlit && c.l2Craft;
+    c.sunRays.visible = isSunlit && c.l2Craft && (sim.view === 'l2' || sim.view === 'system' || sim.view === 'heliofollow' || sim.focus === name);
+    c.sunRayMat.opacity = .48 + breathe * 2.5;
+
+    c.warmSide.scale.setScalar(base * (c.l2Craft ? 1.55 : 1.15));
+    c.coldSide.scale.setScalar(base * 1.42);
+    c.warmSide.position.set(-base * .24, 0, 0);
+    c.coldSide.position.set(base * .22, 0, 0);
+    c.warmSideMat.opacity = isSunlit ? (c.l2Craft ? .32 + breathe : .08) : 0;
+    c.coldSideMat.opacity = isSunlit && c.l2Craft ? .15 : 0;
+
+    // Sun rays are authored in local -X, which stays sunward as earthSystem rotates.
+    const rayScale = Math.max(.55, base / c.baseScale);
+    c.sunRays.scale.setScalar(rayScale);
   }
 }
 
-function updateLocalState(){const t=sim.timeMs/1000,ma=t/MOON_PERIOD*Math.PI*2,mr=MOON_ORBIT_KM/KM_PER_LOCAL_UNIT*(sim.readable?1.45:1);moon.position.set(Math.cos(ma)*mr,0,Math.sin(ma)*mr).applyAxisAngle(new THREE.Vector3(1,0,0),MOON_INC);const ha=t/HUBBLE_PERIOD*Math.PI*2,hr=sim.readable?1.05:HUBBLE_RADIUS_KM/KM_PER_LOCAL_UNIT;craft.hubble.group.position.set(Math.cos(ha)*hr,0,Math.sin(ha)*hr).applyAxisAngle(new THREE.Vector3(1,0,0),HUBBLE_INC);craft.webb.group.position.copy(haloLocalAt(t,'webb'));craft.roman.group.position.copy(haloLocalAt(t,'roman'));}
+function updateLocalState() {
+  const t = sim.timeMs / 1000;
+  const ma = t / MOON_PERIOD * Math.PI * 2;
+  const mr = MOON_ORBIT_KM / KM_PER_LOCAL_UNIT * (sim.readable ? 1.45 : 1);
+  moon.position.set(Math.cos(ma) * mr, 0, Math.sin(ma) * mr).applyAxisAngle(new THREE.Vector3(1, 0, 0), MOON_INC);
+  const ha = t / HUBBLE_PERIOD * Math.PI * 2;
+  const hr = sim.readable ? 1.05 : HUBBLE_RADIUS_KM / KM_PER_LOCAL_UNIT;
+  craft.hubble.group.position.set(Math.cos(ha) * hr, 0, Math.sin(ha) * hr).applyAxisAngle(new THREE.Vector3(1, 0, 0), HUBBLE_INC);
+  craft.webb.group.position.copy(haloLocalAt(t, 'webb'));
+  craft.roman.group.position.copy(haloLocalAt(t, 'roman'));
+}
 
-function applyReferenceFrame(){const helio=sim.frame==='heliocentric',waveView=sim.view==='heliofollow';sun.visible=helio;earthOrbit.visible=helio;l2GuideOrbit.visible=helio;waveGroup.visible=helio&&$('trailToggle').checked;eclipticGrid.visible=waveView;$('sunDirection').hidden=helio;$('geometryReadout').hidden=helio||sim.view==='earth';if(helio){const t=sim.timeMs/1000,{theta,centre}=earthHelioState(t);earthSystem.position.copy(centre);earthSystem.rotation.set(0,-theta,0);const s=currentHelioScale();earthSystem.scale.setScalar(s);earth.scale.setScalar((waveView?.24:.14)/(.72*s));craft.webb.sprite.scale.setScalar((waveView?.48:.30)/s);craft.roman.sprite.scale.setScalar((waveView?.44:.28)/s);craft.hubble.group.visible=false;moon.visible=false;moonTrail.visible=false;hubbleTrail.visible=false;l2.scale.setScalar((waveView?.30:.22)/s);geometryLayer.visible=false;haloPlane.visible=false;haloGrid.visible=false;webbTrail.visible=false;romanTrail.visible=false;webbTube.visible=false;romanTube.visible=false;rebuildWavePaths();}else{earthSystem.position.set(0,0,0);earthSystem.rotation.set(0,0,0);earthSystem.scale.setScalar(1);earth.scale.setScalar(1);craft.hubble.group.visible=true;craft.hubble.sprite.scale.setScalar(craft.hubble.baseScale);craft.webb.sprite.scale.setScalar(craft.webb.baseScale);craft.roman.sprite.scale.setScalar(craft.roman.baseScale);l2.scale.setScalar(1);const local=sim.view==='earth'||sim.view==='system'||sim.focus==='hubble';moon.visible=local;moonTrail.visible=local&&$('trailToggle').checked;hubbleTrail.visible=local&&$('trailToggle').checked;geometryLayer.visible=sim.view==='system'||sim.view==='free';haloPlane.visible=sim.view==='l2';haloGrid.visible=sim.view==='l2';webbTrail.visible=$('trailToggle').checked;romanTrail.visible=$('trailToggle').checked;webbTube.visible=$('trailToggle').checked;romanTube.visible=$('trailToggle').checked;waveGroup.visible=false;eclipticGrid.visible=false;}}
+function applyReferenceFrame() {
+  const helio = sim.frame === 'heliocentric', waveView = sim.view === 'heliofollow';
+  sun.visible = helio; earthOrbit.visible = helio; l2GuideOrbit.visible = helio;
+  waveGroup.visible = helio && $('trailToggle').checked; eclipticGrid.visible = waveView;
+  $('sunDirection').hidden = helio; $('geometryReadout').hidden = helio || sim.view === 'earth';
+  if (helio) {
+    const t = sim.timeMs / 1000, { theta, centre } = earthHelioState(t);
+    earthSystem.position.copy(centre); earthSystem.rotation.set(0, -theta, 0);
+    const s = currentHelioScale(); earthSystem.scale.setScalar(s);
+    earth.scale.setScalar((waveView ? .24 : .14) / (.72 * s));
+    craft.webb.sprite.scale.setScalar((waveView ? .48 : .30) / s);
+    craft.roman.sprite.scale.setScalar((waveView ? .44 : .28) / s);
+    craft.hubble.group.visible = false; moon.visible = false; moonTrail.visible = false; hubbleTrail.visible = false;
+    l2.scale.setScalar((waveView ? .30 : .22) / s);
+    geometryLayer.visible = false; haloPlane.visible = false; haloGrid.visible = false;
+    webbTrail.visible = false; romanTrail.visible = false; webbTube.visible = false; romanTube.visible = false;
+    rebuildWavePaths();
+  } else {
+    earthSystem.position.set(0, 0, 0); earthSystem.rotation.set(0, 0, 0); earthSystem.scale.setScalar(1); earth.scale.setScalar(1);
+    craft.hubble.group.visible = true;
+    craft.hubble.sprite.scale.setScalar(craft.hubble.baseScale);
+    craft.webb.sprite.scale.setScalar(craft.webb.baseScale);
+    craft.roman.sprite.scale.setScalar(craft.roman.baseScale);
+    l2.scale.setScalar(1);
+    const local = sim.view === 'earth' || sim.view === 'system' || sim.focus === 'hubble';
+    moon.visible = local; moonTrail.visible = local && $('trailToggle').checked; hubbleTrail.visible = local && $('trailToggle').checked;
+    geometryLayer.visible = sim.view === 'system' || sim.view === 'free'; haloPlane.visible = sim.view === 'l2'; haloGrid.visible = sim.view === 'l2';
+    webbTrail.visible = $('trailToggle').checked; romanTrail.visible = $('trailToggle').checked;
+    webbTube.visible = $('trailToggle').checked; romanTube.visible = $('trailToggle').checked;
+    waveGroup.visible = false; eclipticGrid.visible = false;
+  }
+}
 
-const VIEWS={system:{frame:'rotating',pos:[2.8,7.2,31],target:[7.2,0,0],title:'Earth–L2 rotating frame',blurb:'Earth is fixed at the origin; +X points anti-sunward to L2, about 1.5 million km away.',readout:'EARTH–L2 ROTATING'},earth:{frame:'rotating',pos:[3.4,2.4,5.7],target:[0,0,0],title:'Earth / Hubble',blurb:'Hubble moves rapidly through sunlight and Earth shadow in low Earth orbit.',readout:'EARTH-CENTRED · ROTATING DISPLAY'},l2:{frame:'rotating',pos:[24,10,19],target:[15,0,0],title:'Sun–Earth L2 close-up',blurb:'Warm rims indicate direct solar illumination. Webb and Roman are designed to maintain a stable Sun-facing thermal geometry.',readout:'EARTH–L2 ROTATING · CLOSE-UP'},heliofollow:{frame:'heliocentric',pos:null,target:null,title:'L2 wave along the ecliptic',blurb:'The camera travels with Earth while the Webb and Roman paths move above and below the ecliptic.',readout:'HELIOCENTRIC · EARTH–L2 FOLLOW'},helio:{frame:'heliocentric',pos:[0,30,36],target:[0,0,0],title:'Heliocentric overview',blurb:'The Sun is fixed. Earth and the L2 region travel together around the one-year orbit.',readout:'HELIOCENTRIC INERTIAL DISPLAY'},free:{frame:'rotating',pos:null,target:null,title:'Free camera',blurb:'Inspect the Earth–L2 rotating geometry directly.',readout:'EARTH–L2 ROTATING · FREE CAMERA'}};
-function setHelioFollowCamera(){const{radial,tangent,up,centre}=earthHelioState(sim.timeMs/1000),target=centre.clone().add(radial.clone().multiplyScalar(2.2));camera.position.copy(target.clone().add(tangent.clone().multiplyScalar(-11)).add(up.clone().multiplyScalar(6.5)).add(radial.clone().multiplyScalar(-2.5)));controls.target.copy(target);controls.update();sim.followAnchor=centre.clone();}
-function updateHelioFollowAnchor(){if(sim.view!=='heliofollow')return;const centre=earthHelioState(sim.timeMs/1000).centre;if(!sim.followAnchor){sim.followAnchor=centre.clone();return;}const d=centre.clone().sub(sim.followAnchor);camera.position.add(d);controls.target.add(d);sim.followAnchor.copy(centre);}
-function setView(name,focus=null){const v=VIEWS[name];sim.view=name;sim.frame=v.frame;sim.focus=focus;sim.followAnchor=null;document.querySelectorAll('[data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===name));$('viewTitle').textContent=v.title;$('viewBlurb').textContent=v.blurb;$('frameReadout').textContent=v.readout;if(name==='heliofollow')setHelioFollowCamera();else if(v.pos){camera.position.set(...v.pos);controls.target.set(...v.target);controls.update();}waveKey='';applyReferenceFrame();}
-function focusCraft(name){const info={hubble:['Hubble Space Telescope','PROPAGATED','LEO · ~483 km altitude · ~95 min period. Watch the warm rim disappear during Earth eclipse.'],webb:['James Webb Space Telescope','EDUCATIONAL','The warm rim denotes direct sunlight; the L2 geometry is chosen to keep Sun, Earth and Moon on the observatory’s warm side.'],roman:['Nancy Grace Roman Space Telescope','EDUCATIONAL','The warm rim denotes direct sunlight. Roman likewise uses the L2 environment for stable thermal and viewing geometry.']}[name];$('focusName').textContent=info[0];$('focusMode').textContent=info[1];$('focusInfo').textContent=info[2];$('focusCard').hidden=false;if(name==='hubble')setView('earth',name);else setView('l2',name);}
-function followTarget(){if(!sim.focus||sim.frame==='heliocentric')return;const p=craft[sim.focus].group.position,dist=sim.focus==='hubble'?2.5:7.5;camera.position.lerp(p.clone().add(new THREE.Vector3(dist*.55,dist*.38,dist)),.055);controls.target.lerp(p,.085);if(sim.focus==='hubble')craft.hubble.sprite.scale.setScalar(.72);}
-function sliderToRate(v){return 10**((Number(v)/1000)*LOG_RATE_MAX);}function rateToSlider(r){return Math.round(Math.log10(Math.max(1,r))/LOG_RATE_MAX*1000);}function formatRate(r){if(r<120)return r<10?`${r.toFixed(1)}×`:`${Math.round(r)}×`;if(r<3600)return`${(r/60).toFixed(r<600?1:0)} min/s`;if(r<DAY)return`${(r/3600).toFixed(r<18000?1:0)} h/s`;return`${(r/DAY).toFixed(r<5*DAY?1:0)} d/s`;}function setRateFromSlider(){sim.rate=sliderToRate($('rateSlider').value);$('rateReadout').textContent=formatRate(sim.rate);}
-function resize(){const w=innerWidth,h=innerHeight,pr=renderer.getPixelRatio();if(canvas.width!==Math.round(w*pr)||canvas.height!==Math.round(h*pr))renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();}
-function tick(now){const dt=Math.min(.1,(now-sim.last)/1000);sim.last=now;if(sim.playing)sim.timeMs+=dt*sim.rate*1000;resize();updateLocalState();updateSunlight(dt);updateHelioFollowAnchor();applyReferenceFrame();followTarget();controls.update();earth.rotation.y+=dt*.018;moon.rotation.y+=dt*.004;sun.rotation.y+=dt*.006;renderer.render(scene,camera);$('utcReadout').textContent=new Date(sim.timeMs).toISOString().replace('T',' ').replace('.000Z','Z');requestAnimationFrame(tick);}
+const VIEWS = {
+  system: { frame: 'rotating', pos: [2.8, 7.2, 31], target: [7.2, 0, 0], title: 'Earth–L2 rotating frame', blurb: 'Earth is fixed at the origin; +X points anti-sunward to L2, about 1.5 million km away.', readout: 'EARTH–L2 ROTATING' },
+  earth: { frame: 'rotating', pos: [3.4, 2.4, 5.7], target: [0, 0, 0], title: 'Earth / Hubble', blurb: 'Hubble moves rapidly through sunlight and Earth shadow in low Earth orbit.', readout: 'EARTH-CENTRED · ROTATING DISPLAY' },
+  l2: { frame: 'rotating', pos: [24, 10, 19], target: [15, 0, 0], title: 'Sun–Earth L2 close-up', blurb: 'Golden rays show the continuously illuminated warm side; the faint blue side indicates the protected cold direction.', readout: 'EARTH–L2 ROTATING · CLOSE-UP' },
+  heliofollow: { frame: 'heliocentric', pos: null, target: null, title: 'L2 wave along the ecliptic', blurb: 'The camera travels with Earth while Webb and Roman remain in deliberate Sun-facing geometry around L2.', readout: 'HELIOCENTRIC · EARTH–L2 FOLLOW' },
+  helio: { frame: 'heliocentric', pos: [0, 30, 36], target: [0, 0, 0], title: 'Heliocentric overview', blurb: 'The Sun is fixed. Earth and the L2 region travel together around the one-year orbit.', readout: 'HELIOCENTRIC INERTIAL DISPLAY' },
+  free: { frame: 'rotating', pos: null, target: null, title: 'Free camera', blurb: 'Inspect the Earth–L2 rotating geometry directly.', readout: 'EARTH–L2 ROTATING · FREE CAMERA' },
+};
+function setHelioFollowCamera() {
+  const { radial, tangent, up, centre } = earthHelioState(sim.timeMs / 1000), target = centre.clone().add(radial.clone().multiplyScalar(2.2));
+  camera.position.copy(target.clone().add(tangent.clone().multiplyScalar(-11)).add(up.clone().multiplyScalar(6.5)).add(radial.clone().multiplyScalar(-2.5)));
+  controls.target.copy(target); controls.update(); sim.followAnchor = centre.clone();
+}
+function updateHelioFollowAnchor() {
+  if (sim.view !== 'heliofollow') return;
+  const centre = earthHelioState(sim.timeMs / 1000).centre;
+  if (!sim.followAnchor) { sim.followAnchor = centre.clone(); return; }
+  const d = centre.clone().sub(sim.followAnchor); camera.position.add(d); controls.target.add(d); sim.followAnchor.copy(centre);
+}
+function setView(name, focus = null) {
+  const v = VIEWS[name]; sim.view = name; sim.frame = v.frame; sim.focus = focus; sim.followAnchor = null;
+  document.querySelectorAll('[data-view]').forEach((b) => b.classList.toggle('active', b.dataset.view === name));
+  $('viewTitle').textContent = v.title; $('viewBlurb').textContent = v.blurb; $('frameReadout').textContent = v.readout;
+  if (name === 'heliofollow') setHelioFollowCamera();
+  else if (v.pos) { camera.position.set(...v.pos); controls.target.set(...v.target); controls.update(); }
+  waveKey = ''; applyReferenceFrame();
+}
+function focusCraft(name) {
+  const info = {
+    hubble: ['Hubble Space Telescope', 'PROPAGATED', 'LEO · ~483 km altitude · ~95 min period. Watch the warm rim disappear during Earth eclipse.'],
+    webb: ['James Webb Space Telescope', 'EDUCATIONAL', 'Golden rays point toward the Sun-facing warm side. The faint blue side represents the protected cold direction behind the sunshield.'],
+    roman: ['Nancy Grace Roman Space Telescope', 'EDUCATIONAL', 'Golden rays make its persistent solar exposure explicit; the cool-side glow marks the protected telescope direction.'],
+  }[name];
+  $('focusName').textContent = info[0]; $('focusMode').textContent = info[1]; $('focusInfo').textContent = info[2]; $('focusCard').hidden = false;
+  if (name === 'hubble') setView('earth', name); else setView('l2', name);
+}
+function followTarget() {
+  if (!sim.focus || sim.frame === 'heliocentric') return;
+  const p = craft[sim.focus].group.position, dist = sim.focus === 'hubble' ? 2.5 : 7.5;
+  camera.position.lerp(p.clone().add(new THREE.Vector3(dist * .55, dist * .38, dist)), .055); controls.target.lerp(p, .085);
+  if (sim.focus === 'hubble') craft.hubble.sprite.scale.setScalar(.72);
+}
+function sliderToRate(v) { return 10 ** ((Number(v) / 1000) * LOG_RATE_MAX); }
+function rateToSlider(r) { return Math.round(Math.log10(Math.max(1, r)) / LOG_RATE_MAX * 1000); }
+function formatRate(r) {
+  if (r < 120) return r < 10 ? `${r.toFixed(1)}×` : `${Math.round(r)}×`;
+  if (r < 3600) return `${(r / 60).toFixed(r < 600 ? 1 : 0)} min/s`;
+  if (r < DAY) return `${(r / 3600).toFixed(r < 18000 ? 1 : 0)} h/s`;
+  return `${(r / DAY).toFixed(r < 5 * DAY ? 1 : 0)} d/s`;
+}
+function setRateFromSlider() { sim.rate = sliderToRate($('rateSlider').value); $('rateReadout').textContent = formatRate(sim.rate); }
+function resize() {
+  const w = innerWidth, h = innerHeight, pr = renderer.getPixelRatio();
+  if (canvas.width !== Math.round(w * pr) || canvas.height !== Math.round(h * pr)) renderer.setSize(w, h, false);
+  camera.aspect = w / h; camera.updateProjectionMatrix();
+}
+function tick(now) {
+  const dt = Math.min(.1, (now - sim.last) / 1000); sim.last = now;
+  if (sim.playing) sim.timeMs += dt * sim.rate * 1000;
+  resize(); updateLocalState(); updateSunlight(dt); updateHelioFollowAnchor(); applyReferenceFrame(); followTarget(); controls.update();
+  earth.rotation.y += dt * .018; moon.rotation.y += dt * .004; sun.rotation.y += dt * .006;
+  renderer.render(scene, camera);
+  $('utcReadout').textContent = new Date(sim.timeMs).toISOString().replace('T', ' ').replace('.000Z', 'Z');
+  requestAnimationFrame(tick);
+}
 
-$('playBtn').addEventListener('click',()=>{sim.playing=!sim.playing;$('playBtn').textContent=sim.playing?'Pause':'Play';});
-$('nowBtn').addEventListener('click',()=>{sim.timeMs=Date.now();waveKey='';});
-$('rateSlider').addEventListener('input',setRateFromSlider);
-$('scaleToggle').addEventListener('change',e=>{sim.readable=e.target.checked;refreshLocalGeometry();waveKey='';applyReferenceFrame();});
-$('trailToggle').addEventListener('change',applyReferenceFrame);
-document.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>{sim.focus=null;$('focusCard').hidden=true;craft.hubble.sprite.scale.setScalar(craft.hubble.baseScale);setView(b.dataset.view);}));
-document.querySelectorAll('[data-focus]').forEach(b=>b.addEventListener('click',()=>focusCraft(b.dataset.focus)));
-$('closeFocus').addEventListener('click',()=>{sim.focus=null;$('focusCard').hidden=true;craft.hubble.sprite.scale.setScalar(craft.hubble.baseScale);});
-$('rateSlider').value=String(rateToSlider(sim.rate));setRateFromSlider();setView('system');requestAnimationFrame(tick);
+$('playBtn').addEventListener('click', () => { sim.playing = !sim.playing; $('playBtn').textContent = sim.playing ? 'Pause' : 'Play'; });
+$('nowBtn').addEventListener('click', () => { sim.timeMs = Date.now(); waveKey = ''; });
+$('rateSlider').addEventListener('input', setRateFromSlider);
+$('scaleToggle').addEventListener('change', (e) => { sim.readable = e.target.checked; refreshLocalGeometry(); waveKey = ''; applyReferenceFrame(); });
+$('trailToggle').addEventListener('change', applyReferenceFrame);
+document.querySelectorAll('[data-view]').forEach((b) => b.addEventListener('click', () => { sim.focus = null; $('focusCard').hidden = true; craft.hubble.sprite.scale.setScalar(craft.hubble.baseScale); setView(b.dataset.view); }));
+document.querySelectorAll('[data-focus]').forEach((b) => b.addEventListener('click', () => focusCraft(b.dataset.focus)));
+$('closeFocus').addEventListener('click', () => { sim.focus = null; $('focusCard').hidden = true; craft.hubble.sprite.scale.setScalar(craft.hubble.baseScale); });
+$('rateSlider').value = String(rateToSlider(sim.rate));
+setRateFromSlider();
+setView('system');
+requestAnimationFrame(tick);
