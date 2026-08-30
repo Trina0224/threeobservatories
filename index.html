@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#05070d">
+  <title>Three Observatories</title>
+  <link rel="stylesheet" href="./styles.css?v=20260830a">
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <main class="app-shell">
+    <header class="topbar">
+      <div>
+        <div class="eyebrow">ORBITAL VISUALIZATION · MILESTONE 1</div>
+        <h1>Three Observatories</h1>
+      </div>
+      <div class="truth-badge" id="truthBadge">MIXED TRUTH / EDUCATIONAL</div>
+    </header>
+
+    <section class="stage-wrap">
+      <canvas id="scene" aria-label="3D orbital simulation of Hubble, Webb, Roman, Earth, Moon and Sun"></canvas>
+      <div id="labels" class="labels" aria-hidden="true"></div>
+      <div class="legend" aria-label="simulation legend">
+        <span><i class="dot sun"></i>Sun</span>
+        <span><i class="dot earth"></i>Earth</span>
+        <span><i class="dot hubble"></i>Hubble</span>
+        <span><i class="dot webb"></i>Webb</span>
+        <span><i class="dot roman"></i>Roman</span>
+      </div>
+    </section>
+
+    <section class="controls" aria-label="simulation controls">
+      <div class="control-group grow">
+        <span class="control-label">Simulation UTC</span>
+        <strong id="utcReadout">—</strong>
+      </div>
+      <button id="playBtn" type="button" class="primary">Pause</button>
+      <button id="nowBtn" type="button">Now</button>
+      <label>
+        <span class="control-label">Rate</span>
+        <select id="rateSelect">
+          <option value="1">1×</option>
+          <option value="60">60×</option>
+          <option value="3600">1 hour / sec</option>
+          <option value="86400" selected>1 day / sec</option>
+          <option value="2592000">30 days / sec</option>
+        </select>
+      </label>
+      <label>
+        <span class="control-label">Scale</span>
+        <select id="scaleSelect">
+          <option value="educational" selected>Educational</option>
+          <option value="true">True orbital scale</option>
+        </select>
+      </label>
+    </section>
+
+    <section class="camera-row" aria-label="camera views">
+      <span class="control-label">Camera</span>
+      <button type="button" data-view="solar" class="active">Solar / L2</button>
+      <button type="button" data-view="earth">Earth system</button>
+      <button type="button" data-view="webb">Follow Webb</button>
+      <button type="button" data-view="roman">Follow Roman</button>
+      <button type="button" data-view="hubble">Follow Hubble</button>
+      <button type="button" data-view="free">Free</button>
+    </section>
+
+    <section class="cards">
+      <article class="card" data-observatory="hubble">
+        <div class="card-head"><h2>Hubble</h2><span class="mode propagated">PROPAGATED</span></div>
+        <div class="stats"><span>LEO</span><span>~483 km</span><span>~95 min</span><span>28.5°</span></div>
+        <p>First-pass circular LEO propagation from NASA published reference values. Orbital phase is illustrative until TLE/SGP4 is connected.</p>
+      </article>
+      <article class="card" data-observatory="webb">
+        <div class="card-head"><h2>James Webb</h2><span class="mode educational">EDUCATIONAL</span></div>
+        <div class="stats"><span>Sun–Earth L2</span><span>~168 d circuit</span></div>
+        <p>Representative 3D L2 loop for the first renderer milestone. It is intentionally not labeled as historical ephemeris.</p>
+      </article>
+      <article class="card" data-observatory="roman">
+        <div class="card-head"><h2>Nancy Grace Roman</h2><span class="mode educational">EDUCATIONAL</span></div>
+        <div class="stats"><span>Sun–Earth L2</span><span>transfer / L2</span></div>
+        <p>Representative L2 path while the official transfer and orbit products are wired into the next data milestone.</p>
+      </article>
+    </section>
+
+    <footer>
+      Physical state and rendered scale are kept separate. See <a href="./docs/SPEC.md">SPEC</a>, <a href="./docs/COORDINATES.md">coordinate policy</a>, and <a href="./docs/RESEARCH_SOURCES.md">research sources</a>.
+    </footer>
+  </main>
+  <script type="module" src="./src/main.js?v=20260830a"></script>
+</body>
+</html>
