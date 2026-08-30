@@ -22,11 +22,25 @@ The shared observatory view includes:
 - Heliocentric L2-wave view
 - Full Sun/Earth heliocentric overview
 - Continuous time-compression slider
-- Solar-illumination/eclipsing visualization
+- Solar-illumination/eclipsing visualization where it carries physical information
 
 Hubble is currently a circular propagated approximation and does not yet claim the spacecraft's current orbital phase. The next Hubble data milestone is TLE + SGP4.
 
 Webb's displayed L2 path remains educational until an authoritative mission ephemeris is connected.
+
+### L2 illumination and thermal geometry
+
+A key educational point of this project is that **Webb and Roman do not normally hide in Earth's umbra at L2**. Sun–Earth L2 is on the anti-solar side of Earth, but the observatories occupy large halo/quasi-halo trajectories around the L2 region rather than sitting at the mathematical point. Their mission geometry is designed for long, stable periods of direct solar illumination and for keeping the Sun, Earth, and Moon in roughly the same general direction from the spacecraft.
+
+That distinction drives the visualization policy:
+
+- **Hubble:** keep the sunlight/eclipsing effect. In low-Earth orbit Hubble repeatedly enters and leaves Earth's shadow, so the illumination transition is meaningful state information.
+- **Webb / Roman:** do **not** use a permanent orange glow as the primary explanation. They are normally sunlit, so a continuously glowing ring becomes decorative rather than informative.
+- **L2 close-up:** explain the geometry instead — Sun/Earth/Moon on the warm side, protected telescope/cold side on the opposite side, and the relevant Sun-facing spacecraft attitude.
+- **Webb:** emphasize the sunshield as the physical device that creates the cold observing side. The educational message is that Webb carries its own shade while operating in a location with deliberately stable illumination.
+- **Roman:** show the analogous stable Sun-facing thermal/orientation geometry without implying that Roman uses Webb's exact thermal architecture.
+
+The renderer may exaggerate spacecraft size, halo-orbit thickness, and local spacing for readability, but it must not imply that L2 is literally inside a permanent Earth shadow.
 
 ### Roman Mission — Launch Day 2026-08-30
 
@@ -46,7 +60,7 @@ It includes:
 - simulated L2 approach and halo-orbit acquisition
 - mission-elapsed-time (MET) and UTC clocks
 - a nonlinear timeline scrubber that preserves useful launch-day resolution while spanning the approximately three-month transfer
-- GSE top, GSE side, Sun-facing, Follow Roman, Launch, and Free camera views
+- GSE and heliocentric camera families, including close L2 arrival views
 - clickable milestone cards with dates and provenance state
 
 #### Roman data/provenance states
@@ -64,6 +78,8 @@ Roman launch chronology is stored separately in `src/data/roman-mission.js`; the
 ## Scientific/rendering policy
 
 Physical state and rendering scale are separate. Educational enlargement is allowed only in the display layer. Historical, propagated, and educational/projected states must remain distinguishable in the UI and data provenance.
+
+Visual effects must communicate state or geometry. If an effect is effectively constant and therefore stops carrying information — for example a permanent sunlight halo around an L2 observatory — prefer a clearer geometric/attitude explanation instead.
 
 ## Reused engine work
 
