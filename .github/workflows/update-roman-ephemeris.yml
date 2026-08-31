@@ -22,12 +22,14 @@ jobs:
         run: node scripts/update-roman-ephemeris.mjs
       - name: Commit the ephemeris
         run: |
-          if git diff --quiet -- public/data/roman-horizons.json; then
-            echo "No change."
-            exit 0
-          fi
           git config user.name "Trina"
           git config user.email "trina.shih@gmail.com"
           git add public/data/roman-horizons.json
+          # --cached, not a bare diff: on the first run the file is untracked,
+          # and `git diff` says nothing about untracked files.
+          if git diff --cached --quiet; then
+            echo "No change."
+            exit 0
+          fi
           git commit -m "Update Roman ephemeris from JPL Horizons (target -211)"
           git push
