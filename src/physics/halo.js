@@ -42,7 +42,8 @@ export function richardsonCoefficients(mu, gamma) {
   const l2s = lambda * lambda;
 
   const d1 = ((3 * l2s) / k) * (k * (6 * l2s - 1) - 2 * lambda);
-  const d2 = ((8 * l2s) / k) * (k * (11 * l2s - 1) - 2 * lambda);
+  // Richardson also defines d2; none of the terms below use it, so it is not
+  // computed here.
   const a21 = (3 * c3 * (k * k - 2)) / (4 * (1 + 2 * c2));
   const a22 = (3 * c3) / (4 * (1 + 2 * c2));
   const a23 = -((3 * c3 * lambda) / (4 * k * d1)) * (3 * k ** 3 * lambda - 6 * k * (k - lambda) + 4);

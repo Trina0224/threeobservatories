@@ -16,8 +16,6 @@ import {
   SUN_EARTH_L2_KM,
   romanTransfer,
   romanTransferPath,
-  romanTransferRenderKm,
-  romanTransferRotKm,
 } from './missions/roman-transfer.js';
 import {
   CRUISE_EVENTS,
@@ -163,7 +161,6 @@ function rebuildPath() {
   scene.add(pathGroup);
 }
 rebuildPath();
-const transferEndSeconds = modelEndSeconds;
 
 // The computed periodic halo, not a drawn loop. See src/missions/roman-halo.js.
 const haloPts = romanHalo.samples.map(
@@ -361,7 +358,7 @@ function updateMissionObjects(dt) {
     booster2.position.y = -0.13;
   }
 
-  transferTube.visible = !early || state.view !== 'launch';
+  pathGroup.visible = !early || state.view !== 'launch';
   haloTube.visible = t > 30 * DAY || state.view !== 'launch';
   l2.visible = state.view !== 'launch';
   ecliptic.visible = state.view !== 'launch';

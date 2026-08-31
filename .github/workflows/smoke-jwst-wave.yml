@@ -22,6 +22,7 @@ on:
       - 'public/data/roman-horizons.json'
       - 'src/missions/**'
       - 'src/render/**'
+      - 'eslint.config.mjs'
       - '.github/workflows/smoke-jwst-wave.yml'
 
 permissions:
@@ -41,7 +42,12 @@ jobs:
           node-version: '20'
 
       - name: Install browser test dependencies
-        run: npm install --no-save playwright-core@1.55.0 pngjs@7.0.0
+        run: npm install --no-save playwright-core@1.55.0 pngjs@7.0.0 eslint@9.39.5 @eslint/js@9.39.5
+
+      # Catches references to names that do not exist, which `node --check`
+      # cannot see. One such slip reached the browser and only failed here.
+      - name: Lint for undefined references
+        run: npx eslint .
 
       - name: Check the Roman L2 halo
         run: node scripts/check-roman-halo.mjs

@@ -31,7 +31,6 @@
 // +X anti-sunward, +Y ecliptic north, +Z = X cross Y -- in kilometres.
 
 import { createCr3bp } from '../physics/cr3bp.js';
-import { dominantEigenvector, monodromy } from '../physics/halo.js';
 import { HALO_PERIOD, HALO_STATE, SUN_EARTH_L2_KM } from './roman-halo.js';
 import { ROMAN_TRANSFER_SECONDS } from '../data/roman-mission.js';
 
@@ -49,7 +48,9 @@ const STABLE_DIRECTION = [0.257319, 0.239967, -0.025064, -0.777265, -0.487702, 0
 // Displacement along the stable direction that puts separation-to-arrival at the
 // mission's 90 days. Recorded rather than solved on load, like the halo state
 // and the eigenvector above; scripts/check-roman-transfer.mjs re-solves it.
-const EPSILON = -7.025400542427104e-4;
+// Written as the value a double actually holds: -7.025400542427104e-4 is
+// stored as ...105, so the shorter-looking literal is the inexact one.
+const EPSILON = -7.025400542427105e-4;
 const SEARCH_STEPS = 6_000;
 const ARC_STEPS = 64_000;   // the arc passes 30 000 km from Earth, where a coarse step costs accuracy
 const SAMPLE_STRIDE = 20;   // integrate finely, store coarsely: the arc is smooth
