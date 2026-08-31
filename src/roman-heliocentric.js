@@ -3,7 +3,13 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { ROMAN_TRANSFER_SECONDS } from './data/roman-mission.js';
 import { createL2Marker } from './render/l2-marker.js';
 import { romanClock } from './missions/roman-clock.js';
-import { romanTransferPath, romanTransferRotKm } from './missions/roman-transfer.js';
+import { romanTransferPath } from './missions/roman-transfer.js';
+import {
+  measuredEndSeconds,
+  onTrackChanged,
+  romanTrackRotKm,
+  trackEndSeconds,
+} from './missions/roman-track.js';
 import { romanHalo } from './missions/roman-halo.js';
 
 const DAY = 86400;
@@ -135,10 +141,13 @@ new THREE.TextureLoader().load('./public/assets/spacecraft/roman.png', (t) => {
   romanMat.needsUpdate = true;
 });
 
-// The integrated CR3BP transfer, in the ROT axes this scene already uses:
-// x anti-sunward, y ecliptic north, z completing the right-handed set.
+// Roman's track -- NASA's measured states where they exist, this project's
+// continuation of them beyond -- in the ROT axes this scene already uses:
+// x anti-sunward, y ecliptic north, z completing the right-handed set. Shared
+// with the geocentric scene through roman-track.js so the two views can never
+// disagree about where Roman is.
 function localTransferKm(t) {
-  const p = romanTransferRotKm(t);
+  const p = romanTrackRotKm(t);
   return new THREE.Vector3(p.x, p.y, p.z);
 }
 
@@ -167,21 +176,52 @@ function helioRoman(t) {
   return localToHelio(localTransferKm(t), t);
 }
 
-// Roman mission trajectory: launch -> L+90 days only. No fake one-year continuation.
-const transferEndSeconds = romanTransferPath[romanTransferPath.length - 1].t;
-const pathTimes = Array.from(
-  { length: 400 },
-  (_, i) => 1860 + (i / 399) * (transferEndSeconds - 1860),
-);
-const pathPts = pathTimes.map((t) => helioRoman(t));
-const missionPath = tube(pathPts, 0xa986ff, 0.052, 0.88, false);
-scene.add(missionPath);
+// Roman mission trajectory: launch -> arrival only. No fake one-year continuation.
+const MODEL_END_SECONDS = romanTransferPath[romanTransferPath.length - 1].t;
 
-// The final 12 days are also available as a quiet line for the dedicated L2 close-up.
-const approachTimes = Array.from({ length: 120 }, (_, i) => ROMAN_TRANSFER_SECONDS - 12 * DAY + i / 119 * 12 * DAY);
-const approachLine = line(approachTimes.map((t) => helioRoman(t)), 0xc0a6ff, 0.86);
-scene.add(approachLine);
-approachLine.visible = false;
+// Same two-source split as the geocentric scene: NASA's published states in one
+// colour, this project's continuation of them in another.
+const MEASURED_COLOR = 0x8fe9ff;
+const MODEL_COLOR = 0xa986ff;
+
+let missionPath = new THREE.Group();
+scene.add(missionPath);
+let approachLine = null;
+
+function samplePts(from, to, count) {
+  return Array.from({ length: count }, (_, i) => helioRoman(from + (i / (count - 1)) * (to - from)));
+}
+
+function rebuildMissionPath() {
+  missionPath.traverse((child) => {
+    if (child.geometry) child.geometry.dispose();
+    if (child.material) child.material.dispose();
+  });
+  scene.remove(missionPath);
+  missionPath = new THREE.Group();
+
+  const end = trackEndSeconds(MODEL_END_SECONDS);
+  const measuredEnd = measuredEndSeconds();
+  if (measuredEnd === null) {
+    missionPath.add(tube(samplePts(1860, end, 400), MODEL_COLOR, 0.052, 0.88, false));
+  } else {
+    missionPath.add(tube(samplePts(1860, measuredEnd, 240), MEASURED_COLOR, 0.056, 0.95, false));
+    missionPath.add(tube(samplePts(measuredEnd, end, 240), MODEL_COLOR, 0.048, 0.72, false));
+  }
+  scene.add(missionPath);
+
+  // The final 12 days are also available as a quiet line for the L2 close-up.
+  if (approachLine) {
+    scene.remove(approachLine);
+    approachLine.geometry.dispose();
+    approachLine.material.dispose();
+  }
+  approachLine = line(samplePts(end - 12 * DAY, end, 120), 0xc0a6ff, 0.86);
+  scene.add(approachLine);
+  approachLine.visible = false;
+}
+rebuildMissionPath();
+onTrackChanged(rebuildMissionPath);
 
 // The computed periodic halo, placed at the arrival epoch's L2 and mapped
 // through the same local-to-heliocentric transform as the transfer.

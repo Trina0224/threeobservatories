@@ -2,6 +2,15 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { createL2Marker } from './render/l2-marker.js';
 import { romanClock } from './missions/roman-clock.js';
+import { loadRomanHorizonsCache, romanEphemeris } from './data/roman-horizons.js';
+import { buildRomanContinuation } from './missions/roman-continuation.js';
+import {
+  measuredEndSeconds,
+  romanTrackRenderKm,
+  romanTrackRotKm,
+  setBridge,
+  trackEndSeconds,
+} from './missions/roman-track.js';
 import { romanHalo } from './missions/roman-halo.js';
 import {
   SUN_EARTH_L2_KM,
@@ -113,19 +122,48 @@ const NEAR_EARTH_OFFSET_KM = 62_000;
 const NEAR_EARTH_FADE_KM = 400_000;
 
 function transferPoint(t) {
-  const rot = romanTransferRenderKm(t, NEAR_EARTH_OFFSET_KM, NEAR_EARTH_FADE_KM);
+  const rot = romanTrackRenderKm(t, NEAR_EARTH_OFFSET_KM, NEAR_EARTH_FADE_KM);
   return new THREE.Vector3(rot.x, rot.y, rot.z).divideScalar(KM_PER_UNIT);
 }
 
-// Drawn through the settling arc past arrival, so the path runs into the halo
-// rather than stopping beside it.
-const transferEndSeconds = romanTransferPath[romanTransferPath.length - 1].t;
-const transferPts = Array.from(
-  { length: 420 },
-  (_, i) => transferPoint((i / 419) * transferEndSeconds),
-);
-const transferTube = tube(transferPts, 0x9d7cff, 0.055, 0.82, false);
-scene.add(transferTube);
+const modelEndSeconds = romanTransferPath[romanTransferPath.length - 1].t;
+
+// The path is drawn in two colours because it comes from two kinds of thing:
+// NASA's published trajectory, and this project's integration of NASA's final
+// state. Drawing them alike would let a screenshot imply the whole curve is
+// measured. They are rebuilt when the ephemeris finishes loading.
+const MEASURED_COLOR = 0x8fe9ff;
+const MODEL_COLOR = 0x9d7cff;
+let pathGroup = new THREE.Group();
+scene.add(pathGroup);
+
+function samplePath(fromSeconds, toSeconds, count) {
+  return Array.from({ length: count }, (_, i) => transferPoint(
+    fromSeconds + (i / (count - 1)) * (toSeconds - fromSeconds),
+  ));
+}
+
+function rebuildPath() {
+  pathGroup.traverse((child) => {
+    if (child.geometry) child.geometry.dispose();
+    if (child.material) child.material.dispose();
+  });
+  scene.remove(pathGroup);
+  pathGroup = new THREE.Group();
+
+  const measuredEnd = measuredEndSeconds();
+  const end = trackEndSeconds(modelEndSeconds);
+  if (measuredEnd === null) {
+    pathGroup.add(tube(samplePath(0, end, 420), MODEL_COLOR, 0.055, 0.82, false));
+  } else {
+    pathGroup.add(tube(samplePath(0, measuredEnd, 260), MEASURED_COLOR, 0.06, 0.95, false));
+    // Overlap one sample so the two tubes meet with no seam.
+    pathGroup.add(tube(samplePath(measuredEnd, end, 260), MODEL_COLOR, 0.05, 0.7, false));
+  }
+  scene.add(pathGroup);
+}
+rebuildPath();
+const transferEndSeconds = modelEndSeconds;
 
 // The computed periodic halo, not a drawn loop. See src/missions/roman-halo.js.
 const haloPts = romanHalo.samples.map(
@@ -207,6 +245,9 @@ const state = {
   rate: 600,
   last: performance.now(),
   view: 'launch',
+  // Set once the Horizons cache resolves; null until then, and null forever if
+  // it fails, in which case the scene keeps the labelled pure model.
+  continuation: null,
 };
 
 // Both sliders share one clock. `setElapsed` is the only place mission time
@@ -254,7 +295,7 @@ function phaseFor(t) {
 
 // Readouts report the integrated state, never the exaggerated render position.
 function rangesKm(t) {
-  const p = romanTransferRotKm(t);
+  const p = romanTrackRotKm(t);
   return {
     earthKm: Math.hypot(p.x, p.y, p.z),
     l2Km: Math.hypot(p.x - SUN_EARTH_L2_KM, p.y, p.z),
@@ -481,10 +522,39 @@ $('romanRate').addEventListener('input', (e) => {
 });
 document.querySelectorAll('[data-roman-view]').forEach((b) => b.addEventListener('click', () => setView(b.dataset.romanView)));
 
-// The transfer is an integrated model, not a NASA data product, and it is a
-// different transfer class from the one Roman flew. Say both on screen, with the
-// numbers that make the first claim checkable, rather than in a vague footnote.
+// Part of this path is NASA's and part is this project's. Say which is which on
+// screen, with the numbers that make each claim checkable, rather than in a
+// vague footnote.
 function describeProvenance() {
+  const measuredEnd = measuredEndSeconds();
+  if (measuredEnd !== null) {
+    const meta = romanEphemeris.metadata ?? {};
+    const files = (meta.trajectoryFiles ?? []).join('; ');
+    $('romanProvenance').textContent =
+      `NASA EPHEMERIS to L+${(measuredEnd / DAY).toFixed(1)} d · computed beyond`;
+    const bridgeText = state.continuation
+      ? `Beyond that: <b>free CR3BP integration of NASA's own final state</b> — no manoeuvre `
+        + `invented, because NASA has announced none. Reaches closest approach to L2 `
+        + `(${Math.round(state.continuation.closestApproachKm).toLocaleString()} km) at `
+        + `L+${(state.continuation.arrivalSeconds / DAY).toFixed(1)} d, Jacobi drift `
+        + `${state.continuation.jacobiDrift.toExponential(1)}. NASA's file carries no `
+        + 'insertion burn, so an uninserted arc must eventually leave L2; the path is drawn '
+        + 'only to that closest approach.'
+      : '';
+    $('romanProvenanceLine').innerHTML = [
+      'Launch events: <b>ACTUAL</b>, NASA Roman launch blog.',
+      `Trajectory to L+${(measuredEnd / DAY).toFixed(1)} d: <b>NASA/JPL Horizons target −211</b>, `
+        + `${romanEphemeris.sampleCount.toLocaleString()} hourly states`
+        + (files ? ` from ${files}` : '')
+        + '. This is a post-launch navigation <i>prediction</i>, not reconstructed tracking.',
+      bridgeText,
+      `Halo: <b>computed periodic orbit</b> — corrected until it closes, period `
+        + `${(romanHalo.periodSeconds / DAY).toFixed(1)} d against the family's ~180 d, closes to `
+        + `${romanHalo.closureKm.toFixed(1)} km. A real Sun–Earth L2 halo, drawn as the `
+        + "destination; Roman's own halo amplitude is unpublished, so this is not it.",
+    ].filter(Boolean).join(' ');
+    return;
+  }
   const days = (romanTransfer.coastSeconds + romanTransfer.arcSeconds) / DAY;
   $('romanProvenance').textContent = 'CR3BP_EDUCATIONAL_MODEL · not a NASA ephemeris';
   $('romanProvenanceLine').innerHTML = [
@@ -513,3 +583,19 @@ state.elapsed = THREE.MathUtils.clamp((Date.now() - ROMAN_LAUNCH_UTC) / 1000, 0,
 setView(state.elapsed < LAUNCH_EXPANDED_END ? 'launch' : 'gsetop');
 updateReadouts();
 requestAnimationFrame(tick);
+
+// Real data loads after the first frame so the scene never blocks on the
+// network. Until it resolves the labelled CR3BP model is drawn.
+document.documentElement.dataset.romanEphemeris = 'loading';
+loadRomanHorizonsCache().then((ok) => {
+  document.documentElement.dataset.romanEphemeris = ok ? 'ready' : 'fallback';
+  if (!ok) {
+    console.error('Bundled Roman Horizons cache unavailable; keeping the labelled CR3BP model.', romanEphemeris.error);
+    return;
+  }
+  state.continuation = buildRomanContinuation();
+  if (state.continuation) setBridge(state.continuation);
+  rebuildPath();
+  describeProvenance();
+  buildTimeline();
+});

@@ -6,8 +6,8 @@
 //   1. MEASURED   NASA's published trajectory (JPL Horizons target -211), from
 //                 T+34 min to the end of whatever JPL has published. Loaded at
 //                 runtime from public/data/roman-horizons.json.
-//   2. BRIDGE     A computed continuation of NASA's final measured state onto
-//                 the halo. See roman-insertion.js.
+//   2. BRIDGE     A free CR3BP continuation of NASA's final measured state, with
+//                 no manoeuvre invented. See roman-continuation.js.
 //   3. MODEL      The pure CR3BP transfer of roman-transfer.js, used only when
 //                 the cache is unavailable.
 //
@@ -26,12 +26,25 @@
 
 import { romanEphemeris, romanMeasuredRotKm } from '../data/roman-horizons.js';
 import { ROMAN_LAUNCH_UTC } from '../data/roman-mission.js';
-import { romanTransferRotKm } from './roman-transfer.js';
+import { educationalRangeKm, romanTransferRotKm } from './roman-transfer.js';
 
 /** Which source produced a position: 'measured', 'bridge' or 'model'. */
 export const SOURCE = { MEASURED: 'measured', BRIDGE: 'bridge', MODEL: 'model' };
 
 const state = { bridge: null };
+const listeners = new Set();
+
+/**
+ * Register a callback for when the track's data changes -- in practice, when
+ * the Horizons cache resolves and the measured span appears. Both Roman scenes
+ * build their geometry once at load, before the fetch can have finished, so
+ * without this the heliocentric view would keep drawing the pure model while
+ * the geocentric view drew NASA's data.
+ */
+export function onTrackChanged(listener) {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
 
 /**
  * Install the computed continuation of NASA's last measured state. Kept
@@ -42,6 +55,7 @@ const state = { bridge: null };
  */
 export function setBridge(bridge) {
   state.bridge = bridge;
+  for (const listener of listeners) listener();
 }
 
 /** Mission elapsed seconds at the end of NASA's published coverage, or null. */
@@ -92,4 +106,22 @@ export function romanTrackRotKm(elapsedSeconds) {
     return { ...bridge.at(elapsedSeconds), source: SOURCE.BRIDGE };
   }
   return { ...romanTransferRotKm(elapsedSeconds), source: SOURCE.MODEL };
+}
+
+/**
+ * `romanTrackRotKm` with the near-Earth exaggeration the scenes draw Earth at.
+ * Render only -- readouts must use `romanTrackRotKm` and true kilometres.
+ */
+export function romanTrackRenderKm(elapsedSeconds, offsetKm, fadeKm) {
+  const p = romanTrackRotKm(elapsedSeconds);
+  const range = Math.hypot(p.x, p.y, p.z);
+  if (range <= 0) return p;
+  const scale = educationalRangeKm(range, offsetKm, fadeKm) / range;
+  return { x: p.x * scale, y: p.y * scale, z: p.z * scale, source: p.source };
+}
+
+/** Mission elapsed seconds at the end of the drawn path. */
+export function trackEndSeconds(fallbackSeconds) {
+  const { bridge } = state;
+  return bridge ? bridge.arrivalSeconds : fallbackSeconds;
 }
