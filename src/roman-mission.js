@@ -1,8 +1,20 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { createL2Marker } from './render/l2-marker.js';
+import { romanClock } from './missions/roman-clock.js';
 import {
-  ROMAN_EVENTS,
+  CRUISE_EVENTS,
+  LAUNCH_DETAIL_SECONDS,
+  LAUNCH_EVENTS,
+  LAUNCH_GROUP_END_FRACTION,
+  detailFractionForTime,
+  fractionForTime,
+  nextEventAfter,
+  previousEventBefore,
+  timeForDetailFraction,
+  timeForFraction,
+} from './missions/roman-timeline.js';
+import {
   ROMAN_LAUNCH_UTC,
   ROMAN_TRANSFER_SECONDS,
   eventAtOrBefore,
@@ -204,17 +216,16 @@ const state = {
   view: 'launch',
 };
 
-function sliderToTime(v) {
-  const x = Number(v) / 1000;
-  if (x <= 0.30) return (x / 0.30) * LAUNCH_EXPANDED_END;
-  const q = (x - 0.30) / 0.70;
-  return LAUNCH_EXPANDED_END + Math.pow(q, 1.24) * (ROMAN_TRANSFER_SECONDS - LAUNCH_EXPANDED_END);
-}
-
-function timeToSlider(t) {
-  if (t <= LAUNCH_EXPANDED_END) return Math.round((t / LAUNCH_EXPANDED_END) * 300);
-  const q = (t - LAUNCH_EXPANDED_END) / (ROMAN_TRANSFER_SECONDS - LAUNCH_EXPANDED_END);
-  return Math.round((0.30 + Math.pow(THREE.MathUtils.clamp(q, 0, 1), 1 / 1.24) * 0.70) * 1000);
+// Both sliders share one clock. `setElapsed` is the only place mission time
+// changes, so the two tracks, the readouts and the heliocentric scene can never
+// disagree about what "now" is.
+function setElapsed(seconds, { pause = true } = {}) {
+  state.elapsed = THREE.MathUtils.clamp(seconds, 0, ROMAN_TRANSFER_SECONDS);
+  if (pause) {
+    state.playing = false;
+    $('romanPlay').textContent = 'Play';
+  }
+  updateReadouts();
 }
 
 function formatMET(t) {
@@ -342,7 +353,12 @@ function updateReadouts() {
   $('romanEventDetail').textContent = evt.detail;
   $('romanEventStatus').textContent = evt.status === 'actual' ? 'ACTUAL' : evt.status === 'nasa-window' ? 'NASA WINDOW' : 'PROJECTED';
   $('romanEventStatus').className = `roman-status ${evt.status}`;
-  $('romanTimeline').value = String(timeToSlider(t));
+  $('romanTimeline').value = String(Math.round(fractionForTime(t) * 1000));
+  $('romanLaunchTimeline').value = String(Math.round(detailFractionForTime(t) * 1000));
+  // The detail track only means anything while the clock is inside its window.
+  $('romanDetailTrackRow').classList.toggle('active', t <= LAUNCH_DETAIL_SECONDS);
+  highlightMarks(evt.id);
+  romanClock.set(t);
 }
 
 function resize() {
@@ -372,25 +388,48 @@ function tick(now) {
   requestAnimationFrame(tick);
 }
 
-function buildEvents() {
-  const host = $('romanEvents');
+function viewForTime(t) {
+  if (t < LAUNCH_EXPANDED_END) return 'launch';
+  return t < 30 * DAY ? 'gsetop' : 'follow';
+}
+
+function jumpToEvent(event) {
+  setElapsed(event.t);
+  setView(viewForTime(event.t));
+}
+
+// Milestones are drawn on the track they belong to instead of in a separate
+// scrolling strip, so their position on the timeline is the information.
+function buildMarks(host, events, fractionFn) {
   host.innerHTML = '';
-  for (const event of ROMAN_EVENTS) {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.className = `roman-event ${event.status}`;
-    b.innerHTML = `<span>${event.label}</span><small>${event.date}</small>`;
-    b.addEventListener('click', () => {
-      state.elapsed = event.t;
-      state.playing = false;
-      $('romanPlay').textContent = 'Play';
-      if (event.t < LAUNCH_EXPANDED_END) setView('launch');
-      else if (event.t < 30 * DAY) setView('gsetop');
-      else setView('follow');
-      updateReadouts();
-    });
-    host.appendChild(b);
+  for (const event of events) {
+    const mark = document.createElement('button');
+    mark.type = 'button';
+    mark.className = `roman-mark ${event.status}`;
+    mark.dataset.eventId = event.id;
+    mark.style.setProperty('--f', fractionFn(event.t));
+    mark.title = `${event.label} · ${event.date}`;
+    mark.setAttribute('aria-label', `${event.label}, ${event.date}`);
+    mark.addEventListener('click', () => jumpToEvent(event));
+    host.appendChild(mark);
   }
+}
+
+function buildTimeline() {
+  buildMarks($('romanMainMarks'), CRUISE_EVENTS, fractionForTime);
+  buildMarks($('romanDetailMarks'), LAUNCH_EVENTS, detailFractionForTime);
+  // Bracket showing which slice of the main track the detail track expands.
+  const bracket = document.createElement('span');
+  bracket.className = 'roman-mark-group';
+  bracket.style.setProperty('--to', LAUNCH_GROUP_END_FRACTION);
+  bracket.title = `Launch day: ${LAUNCH_EVENTS.length} milestones in the first hour`;
+  $('romanMainMarks').appendChild(bracket);
+}
+
+function highlightMarks(currentId) {
+  document.querySelectorAll('.roman-mark').forEach((mark) => {
+    mark.classList.toggle('current', mark.dataset.eventId === currentId);
+  });
 }
 
 function activateRoman() {
@@ -418,22 +457,26 @@ $('romanPlay').addEventListener('click', () => {
   $('romanPlay').textContent = state.playing ? 'Pause' : 'Play';
 });
 $('romanLaunchDay').addEventListener('click', () => {
-  state.elapsed = 0;
-  state.playing = false;
-  $('romanPlay').textContent = 'Play';
+  setElapsed(0);
   setView('launch');
 });
 $('romanNow').addEventListener('click', () => {
-  state.elapsed = THREE.MathUtils.clamp((Date.now() - ROMAN_LAUNCH_UTC) / 1000, 0, ROMAN_TRANSFER_SECONDS);
-  state.playing = false;
-  $('romanPlay').textContent = 'Play';
-  setView(state.elapsed < LAUNCH_EXPANDED_END ? 'launch' : 'gsetop');
+  setElapsed((Date.now() - ROMAN_LAUNCH_UTC) / 1000);
+  setView(viewForTime(state.elapsed));
 });
 $('romanTimeline').addEventListener('input', (e) => {
-  state.elapsed = sliderToTime(e.target.value);
-  state.playing = false;
-  $('romanPlay').textContent = 'Play';
-  updateReadouts();
+  setElapsed(timeForFraction(Number(e.target.value) / 1000));
+});
+$('romanLaunchTimeline').addEventListener('input', (e) => {
+  setElapsed(timeForDetailFraction(Number(e.target.value) / 1000));
+});
+$('romanPrevEvent').addEventListener('click', () => {
+  const event = previousEventBefore(state.elapsed);
+  if (event) jumpToEvent(event);
+});
+$('romanNextEvent').addEventListener('click', () => {
+  const event = nextEventAfter(state.elapsed);
+  if (event) jumpToEvent(event);
 });
 $('romanRate').addEventListener('input', (e) => {
   const x = Number(e.target.value) / 1000;
@@ -442,7 +485,7 @@ $('romanRate').addEventListener('input', (e) => {
 });
 document.querySelectorAll('[data-roman-view]').forEach((b) => b.addEventListener('click', () => setView(b.dataset.romanView)));
 
-buildEvents();
+buildTimeline();
 $('romanRate').value = '433';
 $('romanRate').dispatchEvent(new Event('input'));
 state.elapsed = THREE.MathUtils.clamp((Date.now() - ROMAN_LAUNCH_UTC) / 1000, 0, ROMAN_TRANSFER_SECONDS);

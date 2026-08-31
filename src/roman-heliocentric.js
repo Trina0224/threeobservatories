@@ -2,13 +2,13 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { ROMAN_TRANSFER_SECONDS } from './data/roman-mission.js';
 import { createL2Marker } from './render/l2-marker.js';
+import { romanClock } from './missions/roman-clock.js';
 
 const DAY = 86400;
 const YEAR = 365.256363004 * DAY;
 const AU = 22;
 const KM_PER_AU_RENDER = 149_597_870.7 / AU;
 const L2_OFFSET = 1_500_000 / KM_PER_AU_RENDER;
-const LAUNCH_EXPANDED_END = 2 * 3600;
 const $ = (id) => document.getElementById(id);
 
 const canvas = $('romanHelioScene');
@@ -130,13 +130,6 @@ new THREE.TextureLoader().load('./public/assets/spacecraft/roman.png', (t) => {
   romanMat.needsUpdate = true;
 });
 
-function sliderToTime(v) {
-  const x = Number(v) / 1000;
-  if (x <= 0.30) return (x / 0.30) * LAUNCH_EXPANDED_END;
-  const q = (x - 0.30) / 0.70;
-  return LAUNCH_EXPANDED_END + Math.pow(q, 1.24) * (ROMAN_TRANSFER_SECONDS - LAUNCH_EXPANDED_END);
-}
-
 function localTransferKm(t) {
   if (t <= 1860) return new THREE.Vector3(80_000 * Math.max(0, t / 1860), 0, 0);
   const u = THREE.MathUtils.clamp((t - 1860) / (ROMAN_TRANSFER_SECONDS - 1860), 0, 1);
@@ -206,7 +199,9 @@ const HELIO_VIEWS = new Set([
 ]);
 
 function isHelioView(name) { return HELIO_VIEWS.has(name); }
-function currentElapsed() { return sliderToTime($('romanTimeline').value); }
+// Mission time comes from the shared clock, not from re-reading the slider:
+// the slider quantises the cruise to about two hours per step.
+function currentElapsed() { return romanClock.elapsed; }
 function isL2View() { return state.view === 'helioL2' || state.view === 'helioL2Side'; }
 
 function setHelioView(name) {
