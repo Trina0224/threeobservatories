@@ -81,11 +81,13 @@ async function main() {
     const elapsed = r.unix - launchSeconds;
     paired.push({ elapsed, rot, range: Math.hypot(r.x, r.y, r.z), speed: Math.hypot(r.vx, r.vy, r.vz) });
   }
-  for (const p of paired) {
+  // Horizons samples land on the hour; launch was at 11:26, so no sample falls
+  // on a whole mission day. Print every 24th row instead of matching on time.
+  paired.forEach((p, i) => {
+    if (i !== 0 && i !== paired.length - 1 && i % 24 !== 0) return;
     const days = p.elapsed / 86400;
-    if (Math.abs(days - Math.round(days)) > 1e-6 && p.elapsed > 7200) continue;
     console.log(`${(days).toFixed(2).padStart(6)}d ${fmt(p.range)} ${fmt(p.rot.x)} ${fmt(p.rot.y)} ${fmt(p.rot.z)} ${p.speed.toFixed(3).padStart(8)}`);
-  }
+  });
 
   const first = paired[0];
   const c3 = first.speed * first.speed - 2 * EARTH_GM / first.range;
@@ -96,16 +98,21 @@ async function main() {
   console.log('\n=== our CR3BP model vs NASA, same mission time ===');
   console.log('   T+   NASA range  model range      d(range)   NASA antiSun  model antiSun   separation');
   let worst = 0;
-  for (const p of paired) {
+  let worstDay = 0;
+  let sumRel = 0;
+  paired.forEach((p, i) => {
     const days = p.elapsed / 86400;
     const ours = romanTransferRotKm(p.elapsed);
     const sep = Math.hypot(ours.x - p.rot.x, ours.y - p.rot.y, ours.z - p.rot.z);
-    if (sep > worst) worst = sep;
-    if (Math.abs(days - Math.round(days)) > 1e-6 && p.elapsed > 7200) continue;
+    if (sep > worst) { worst = sep; worstDay = days; }
+    sumRel += sep / Math.max(1, p.range);
+    if (i !== 0 && i !== paired.length - 1 && i % 24 !== 0) return;
     const ourRange = Math.hypot(ours.x, ours.y, ours.z);
     console.log(`${days.toFixed(2).padStart(6)}d ${fmt(p.range)} ${fmt(ourRange)} ${fmt(ourRange - p.range)} ${fmt(p.rot.x)} ${fmt(ours.x)} ${fmt(sep)}`);
-  }
-  console.log(`\nlargest separation over the 28 days NASA publishes: ${fmt(worst, 0)} km`);
+  });
+  console.log(`\nmean separation as a fraction of NASA's range: ${(100 * sumRel / paired.length).toFixed(1)}%`);
+  console.log(`worst separation at T+${worstDay.toFixed(2)} d`);
+  console.log(`largest separation over the 28 days NASA publishes: ${fmt(worst, 0)} km`);
 
   // Where is NASA's Roman heading? Fit the growth of anti-sunward distance.
   const halfway = paired[Math.floor(paired.length / 2)];
