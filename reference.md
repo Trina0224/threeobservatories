@@ -70,6 +70,21 @@ The browser does not claim these numbers as project-generated orbital data. A Gi
 
 The cache also includes same-epoch Sun vectors used to transform the Earth-centered Webb state into the project's Sun–Earth rotating display frame.
 
+**Not all of the cached span is measured.** The cache covers 2024-01-01 to
+2031-01-01, but Horizons' own object header for `-170` (read on 2026-08-31)
+shows the coverage is stitched from three products:
+
+    DEFINITIVE_EPHEMERIS_202135913-2026228   2021-Dec-25 13:01  2026-Aug-24 00:01
+    28D_NOBURN_PREDICT_SK_2026236000000_03U  2026-Aug-24 00:01  2026-Sep-21 00:01
+    5Y_SCHEDULE_2026236000000_03U.V0.1       2026-Sep-21 00:01  2031-Aug-23 23:59
+
+So Webb's trajectory is reconstructed as-flown tracking only up to
+**2026-Aug-24**; after that it is a no-burn prediction, and after 2026-Sep-21 it
+is a five-year schedule projection. Dates beyond the definitive span are NASA's
+prediction rather than NASA's measurement, and the UI should say so rather than
+labelling the whole span as flown data. The boundary moves each time the
+ephemeris is refetched, so it is read from the header rather than hard-coded.
+
 **STScI — JWST Moving Target Supporting Technical Information**  
 https://jwst-docs.stsci.edu/methods-and-roadmaps/jwst-moving-target-observations/jwst-moving-target-supporting-technical-information/moving-target-ephemerides
 
@@ -180,14 +195,53 @@ https://science.nasa.gov/blogs/roman/2026/08/30/nasas-roman-space-telescope-flyi
 
 These NASA posts are the source for the launch-day event chronology represented as `ACTUAL` or `NASA WINDOW` in the simulation.
 
-### Roman launch-to-L2 trajectory reference
+### Roman post-launch ephemeris — JPL Horizons target -211
+
+Roman launched on 2026-08-30 and JPL publishes its trajectory as **Horizons
+target `-211`** ("Nancy Grace Roman Space Telescope"). This repository fetches
+it with `scripts/update-roman-ephemeris.mjs` into
+`public/data/roman-horizons.json`; the Roman Mission scenes draw the measured
+span from that file.
+
+    Trajectory file                          Start (TDB)        End (TDB)
+    RST_EPH_PRED_NOMNVR_2026242_2026270_01   2026-Aug-30 12:00  2026-Sep-27 11:57
+
+Two properties of this product matter for how it is drawn:
+
+* It is a **post-launch navigation prediction**, not reconstructed tracking.
+* `NOMNVR` means it contains **no manoeuvres**. Propagated past its end it does
+  not stay at L2 — it traces the approach and then departs along the unstable
+  manifold, because the insertion the real mission will perform is not in the
+  file. Any continuation past 2026-Sep-27 in this repository is the project's
+  own integration, not NASA's prediction, and is labelled as such.
+
+Earlier revisions of this file asserted that NASA had published no Roman
+ephemeris. That was true before launch and is no longer true. The claim was
+also checked against the wrong NAIF ids (-244, -227) before -211 was found;
+`scripts/probe-roman-horizons.mjs` now asks the service directly.
+
+**Measured against the project's own CR3BP model** — `scripts/compare-roman-horizons.mjs`,
+over the 28 days NASA publishes:
+
+| quantity | result |
+|---|---|
+| range from Earth | model within 2–5% of NASA from T+1 d onward |
+| C3 at first sample | NASA −0.620 km²/s², model ≈ −0.4 km²/s² |
+| direction | model up to **515 724 km** away, worst at T+19 d |
+
+The model got the energy and the timing of an Earth-to-L2 transfer right and
+the *orientation* wrong, which is expected: orientation is set by launch
+azimuth, launch date and target halo, none of which follow from the equations
+of motion. This is why the scenes prefer measured data wherever it exists.
 
 **NASA Scientific Visualization Studio — Roman Telescope Launch and Orbit at L2, SVS 5673**  
 https://svs.gsfc.nasa.gov/5673
 
-This is the primary visual / trajectory-geometry reference for the Roman Mission mode. NASA SVS presents Roman's launch-to-L2 trajectory in Geocentric Solar Ecliptic (GSE) views and identifies SPICE ephemerides as the underlying dataset for the visualization.
-
-Important distinction: the current project uses this NASA product as the basis for an educational planned/simulated Roman transfer visualization. Unless a future Roman state is explicitly marked as authoritative post-launch ephemeris, projected future points in this repository should **not** be interpreted as NASA operational navigation products.
+Visual / trajectory-geometry reference for the Roman Mission mode, used before
+the post-launch ephemeris existed. NASA SVS presents Roman's launch-to-L2
+trajectory in Geocentric Solar Ecliptic (GSE) views and identifies SPICE
+ephemerides as the underlying dataset. It is a visualization product, not a
+data product.
 
 ### Roman technical paper
 
