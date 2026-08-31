@@ -1,0 +1,21 @@
+name: Probe JPL Horizons for Roman
+
+# Manual only. Answers whether Horizons carries a Roman trajectory, from a
+# runner that can reach ssd.jpl.nasa.gov.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Ask Horizons about Roman
+        run: node scripts/probe-roman-horizons.mjs
