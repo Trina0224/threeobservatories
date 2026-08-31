@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { ROMAN_TRANSFER_SECONDS } from './data/roman-mission.js';
+import { createL2Marker } from './render/l2-marker.js';
 
 const DAY = 86400;
 const YEAR = 365.256363004 * DAY;
@@ -113,13 +114,8 @@ const earthGlow = new THREE.Mesh(
 );
 earth.add(earthGlow);
 
-const l2Marker = new THREE.Group();
-const lm = new THREE.LineBasicMaterial({ color: 0x9bb4c7, transparent: true, opacity: 0.62 });
-l2Marker.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints([
-  new THREE.Vector3(-0.045, 0, 0), new THREE.Vector3(0.045, 0, 0),
-  new THREE.Vector3(0, -0.045, 0), new THREE.Vector3(0, 0.045, 0),
-  new THREE.Vector3(0, 0, -0.045), new THREE.Vector3(0, 0, 0.045),
-]), lm));
+const l2 = createL2Marker({ armLength: 0.05, ringRadius: 0.08 });
+const l2Marker = l2.group;
 scene.add(l2Marker);
 
 const roman = new THREE.Group();
@@ -295,7 +291,9 @@ function updateObjects() {
 
   // Minimum visual sizes in close-up; positions remain in the heliocentric frame.
   earth.scale.setScalar(l2View ? 0.42 : 1);
-  l2Marker.scale.setScalar(l2View ? 2.2 : 1);
+  // 2.2 was tuned for the old bare cross; the labelled marker needs far less
+  // emphasis to read, and swamped Roman in the close-up at that size.
+  l2Marker.scale.setScalar(l2View ? 1.15 : 1);
   romanSprite.scale.setScalar(l2View ? 0.20 : 0.42);
 
   if (state.view === 'earthFollow' && state.anchor) {
@@ -337,6 +335,8 @@ function tick() {
     resize();
     updateObjects();
     controls.update();
+    // Keeps the L2 label a constant size on screen at any zoom.
+    l2.update(camera);
     if (sun.visible) sun.rotation.y += 0.0012;
     renderer.render(scene, camera);
   }

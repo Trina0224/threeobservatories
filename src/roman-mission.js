@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { createL2Marker } from './render/l2-marker.js';
 import {
   ROMAN_EVENTS,
   ROMAN_LAUNCH_UTC,
@@ -69,15 +70,8 @@ earth.add(atmosphere);
 const moon = sphere(0.14, 0xa5a5a0, 0.95);
 scene.add(moon);
 
-const l2 = new THREE.Group();
-const l2Material = new THREE.LineBasicMaterial({ color: 0x83a6c3, transparent: true, opacity: 0.44 });
-l2.add(new THREE.LineSegments(
-  new THREE.BufferGeometry().setFromPoints([
-    new THREE.Vector3(-0.2, 0, 0), new THREE.Vector3(0.2, 0, 0),
-    new THREE.Vector3(0, -0.2, 0), new THREE.Vector3(0, 0.2, 0),
-    new THREE.Vector3(0, 0, -0.2), new THREE.Vector3(0, 0, 0.2),
-  ]), l2Material,
-));
+const l2Marker = createL2Marker({ armLength: 0.34, ringRadius: 0.52 });
+const l2 = l2Marker.group;
 l2.position.x = L2_UNITS;
 scene.add(l2);
 
@@ -370,6 +364,8 @@ function tick(now) {
     resize();
     updateMissionObjects(dt);
     orbit.update();
+    // Keeps the L2 label a constant size on screen at any zoom.
+    l2Marker.update(camera);
     renderer.render(scene, camera);
     updateReadouts();
   }
