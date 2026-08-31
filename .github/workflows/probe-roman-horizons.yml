@@ -19,3 +19,5 @@ jobs:
           node-version: '20'
       - name: Ask Horizons about Roman
         run: node scripts/probe-roman-horizons.mjs
+      - name: Compare the computed transfer against NASA's prediction
+        run: node scripts/compare-roman-horizons.mjs
