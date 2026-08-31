@@ -7,7 +7,7 @@
 <title>Three Observatories</title>
 <meta name="description" content="Hubble, Webb and Roman visualized in Earth orbit, Sun-Earth L2, and Roman's launch-to-L2 mission.">
 <link rel="stylesheet" href="./styles.css?v=20260831a">
-<link rel="stylesheet" href="./roman-heliocentric.css?v=20260831a">
+<link rel="stylesheet" href="./roman-heliocentric.css?v=20260831b">
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"}}</script>
 </head>
 <body>
@@ -28,6 +28,6 @@
 <div class="roman-ui roman-controls"><div class="roman-timeline-row"><button id="romanLaunchDay" type="button" class="pill">Launch</button><input id="romanTimeline" type="range" min="0" max="1000" step="1" value="0" aria-label="Roman mission timeline"><button id="romanNow" type="button" class="pill">Now</button></div><div id="romanEvents" class="roman-events" aria-label="Roman mission milestones"></div><div class="roman-bottom-row"><div class="roman-view-row" role="group" aria-label="Roman camera view"><span class="roman-view-label">EARTH / GSE</span><button data-roman-view="launch" class="pill active">Launch</button><button data-roman-view="gsetop" class="pill">GSE top</button><button data-roman-view="gseside" class="pill">GSE side</button><button data-roman-view="sunface" class="pill">Sun-facing</button><button data-roman-view="follow" class="pill">Follow Roman</button><button data-roman-view="free" class="pill">Free</button><span class="roman-view-separator" aria-hidden="true"></span><span class="roman-view-label">HELIOCENTRIC</span><button data-roman-view="helio" class="pill">Sun orbit</button><button data-roman-view="helioTop" class="pill">Orbit top</button><button data-roman-view="helioSide" class="pill">Orbit side</button><button data-roman-view="earthFollow" class="pill">Earth-follow</button><button data-roman-view="romanOrbitFollow" class="pill">Roman-follow</button><button data-roman-view="helioL2" class="pill">L2 zoom</button><button data-roman-view="helioL2Side" class="pill">L2 side</button><button data-roman-view="helioFree" class="pill">Solar Free</button></div><button id="romanPlay" type="button" class="pill transport">Pause</button><div class="roman-rate"><span>TIME</span><input id="romanRate" type="range" min="0" max="1000" step="1" value="433" aria-label="Roman mission time compression"><output id="romanRateReadout">600×</output></div></div><div class="roman-provenance">Actual launch events: NASA Roman launch blog · Transfer geometry: NASA SVS 5673 / SPICE-informed visualization · Future milestones: PROJECTED / SIMULATED</div></div>
 <script type="module" src="./src/three-add-guard.js?v=20260831a"></script>
 <script type="module" src="./src/main.js?v=20260831a"></script>
-<script type="module" src="./src/roman-entry.js?v=20260831a"></script>
+<script type="module" src="./src/roman-entry.js?v=20260831b"></script>
 </body>
 </html>

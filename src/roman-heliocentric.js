@@ -127,9 +127,6 @@ const romanMat = new THREE.SpriteMaterial({ transparent: true, depthWrite: false
 const romanSprite = new THREE.Sprite(romanMat);
 romanSprite.scale.setScalar(0.42);
 roman.add(romanSprite);
-const glow = new THREE.Sprite(new THREE.SpriteMaterial({ color: 0xffc96f, transparent: true, opacity: 0.23, depthWrite: false, blending: THREE.AdditiveBlending }));
-glow.scale.setScalar(0.64);
-roman.add(glow);
 scene.add(roman);
 new THREE.TextureLoader().load('./public/assets/spacecraft/roman.png', (t) => {
   t.colorSpace = THREE.SRGBColorSpace;
@@ -300,8 +297,6 @@ function updateObjects() {
   earth.scale.setScalar(l2View ? 0.42 : 1);
   l2Marker.scale.setScalar(l2View ? 2.2 : 1);
   romanSprite.scale.setScalar(l2View ? 0.20 : 0.42);
-  glow.scale.setScalar(romanSprite.scale.x * 1.55);
-  glow.material.opacity = 0.22 + 0.04 * Math.sin(performance.now() * 0.0015);
 
   if (state.view === 'earthFollow' && state.anchor) {
     const d = b.earth.clone().sub(state.anchor);
