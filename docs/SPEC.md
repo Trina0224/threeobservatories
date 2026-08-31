@@ -67,11 +67,13 @@ Current cache contract:
 - units: km and km/s product convention, with position columns cached
 - time scale: TDB
 - cadence: 12 hours
-- current range: 2025-01-01 through 2028-01-01
+- current range: 2024-01-01 through 2031-01-01
 
 Truth/fallback rule:
-- when the local cache is ready, hide the old hand-drawn Webb current phase/trail
-- if the cache is missing or invalid, keep a visibly educational fallback rather than claiming current truth
+- **one function owns Webb's position.** The sprite, the local trail, the local tube and the heliocentric wave must all be sampled from it, in every view. A spacecraft drawn from one source while its path is drawn from another will drift off its own trajectory; see section 6.
+- suppressing a placeholder that another layer keeps redrawing is not a substitute for removing it
+- if the cache is missing or invalid, or the clock leaves its coverage window, draw a visibly educational fallback rather than claiming current truth, and label it as such in the focus card
+- never blend cached and fallback samples into a single path: if the centre epoch is covered, draw only cached samples and simply omit epochs that are not
 - do not extrapolate the older NASA MEM trajectory beyond its supplied time span and call it current ephemeris
 
 Required milestones:
@@ -84,7 +86,8 @@ Required milestones:
 Sanity checks:
 - L2 distance from Earth: about 1.5 million km
 - Webb does not sit on L2
-- Webb orbit period around the L2 region is roughly six months / about 168 days in NASA public material
+- Webb orbit period around the L2 region is roughly six months. NASA public material quotes about 168 days; the bundled Horizons cache measures 178–183 days depending on epoch, and the renderer must use the measured value rather than a hard-coded one
+- the halo is quasi-periodic and does not close on itself: over one revolution it drifts roughly 40 000–50 000 km. A drawn loop must not be forced shut with interpolated points
 - Webb must not be depicted as normally hiding in Earth's umbra; its thermal story is dominated by its own Sun-facing sunshield and stable L2 geometry
 
 ### Nancy Grace Roman Space Telescope
@@ -121,6 +124,15 @@ Internal requirements:
 
 ## 4. Scene/view modes
 
+### Orbit path rules (all views)
+
+These apply wherever a spacecraft and its trajectory appear together.
+
+- A craft and its drawn path come from the same position function. This is a structural requirement, not a tuning exercise: if the two can disagree, eventually they will.
+- A closed orbit loop is drawn as **exactly one revolution**, and the revolution length is measured from the source ephemeris at the current epoch. A fixed window over a drifting period overshoots and leaves a loose end hanging off the loop, which reads as a broken orbit. A 200-day window on Webb's ~178-day halo put the two ends of the line 430 000 km apart.
+- The residual step where the ends meet is real orbital drift. Leave it. Do not close the loop with points that are not in the source data.
+- Paths are rebuilt on a time bucket, never every animation frame.
+
 ### Solar / L2 View
 
 Show:
@@ -131,6 +143,8 @@ Show:
 - Webb orbit trail
 - Roman orbit trail
 - transfer trajectories when timeline intersects them
+
+Both observatory paths must be present in this view. A regression once left the heliocentric overview with Roman's purple path and no Webb path at all, because only the close follow view rebuilt the real amber one.
 
 Use a Sun/Earth-aware frame or transform that makes L2 geometry understandable while preserving documented physical state underneath.
 
@@ -166,11 +180,11 @@ The L2 Wave view combines the annual heliocentric motion of the Earth–L2 syste
 Webb rendering requirements:
 - source points must come from the cached Horizons ephemeris
 - transform each sample with a same-epoch Sun vector
+- the wave and the Webb sprite must be produced by the same position function and the same local-to-heliocentric transform, so the telescope rides the tube by construction
 - render a thick, high-contrast amber tube that remains legible on iPad/WebGL
-- keep only one authoritative Webb wave path visible
-- do not rebuild the tube every animation frame
-- rebuild only when the source/time window materially changes
-- disable depth occlusion/frustum culling if needed for reliable educational visibility
+- keep only one authoritative Webb wave path visible, by not creating a second one
+- do not rebuild the tube every animation frame; rebuild only when the source or time window materially changes
+- depth-test and frustum-culling overrides are not a fix for a path drawn in the wrong place. Do not reach for them to make a competing path win.
 
 Roman may retain a clearly labeled projected purple wave until authoritative post-launch ephemeris is connected.
 
@@ -223,7 +237,29 @@ Imported datasets must carry provenance metadata and validity windows.
 
 ## 6. Rendering architecture
 
-Physics/data truth and Three.js display objects must stay separable. Browser-friendly ephemeris interpolation may be layered over the renderer, but the display layer must not silently manufacture current mission phase when source data are unavailable.
+Physics/data truth and Three.js display objects must stay separable.
+
+Current layout:
+
+| Path | Holds | Must not hold |
+| --- | --- | --- |
+| `src/physics/` | frames, transforms, low-precision solar coordinates | Three.js objects, mission constants |
+| `src/data/` | Horizons cache loader, Hubble TLE + SGP4 | Three.js objects |
+| `src/core/` | integrator, playback | mission constants, Three.js objects |
+| `src/main.js` | the single observatory renderer, scene graph, UI | orbital truth of its own |
+| `src/roman-mission.js`, `src/roman-heliocentric.js` | Roman's independent scenes | — |
+
+Physics and data modules exchange plain `{ x, y, z }` vectors in kilometres. Conversion to render units happens at one boundary and does nothing but apply the display scale.
+
+### One renderer, one source per object
+
+**Do not layer a second module over a finished scene to correct it.** That was tried and it failed in a way worth recording, because it looked like it worked:
+
+A patch module imported the renderer, then each frame reached into the built scene to overwrite spacecraft positions and hide placeholder trails. Both modules drove their own `requestAnimationFrame` callback, and the renderer's was registered first — so every correction was applied *after* the frame it was meant to fix had already been drawn, and was overwritten before the next one. The visible result was a telescope floating beside its own trajectory, suppressed placeholder paths reappearing next to the real ones, and views that silently kept the placeholder because the patch layer only rebuilt some of them.
+
+Monkey-patching `THREE.Object3D.prototype.add` to filter objects out of a scene is the same anti-pattern. If an object should not exist, delete the code that creates it.
+
+The display layer must not silently manufacture current mission phase when source data are unavailable: draw the labelled educational fallback and say so in the UI.
 
 ## 7. Visual-information policy
 
@@ -245,18 +281,25 @@ Bad examples:
 
 A code path is not considered complete merely because it builds a Three.js object.
 
-The repository must retain an automated browser smoke test for the L2 Wave:
+The repository must retain an automated browser smoke test for Webb's L2 path:
 
 - open the local site
 - wait until `data-jwst-ephemeris="ready"`
-- select `Observatories → L2 Wave`
-- capture a screenshot
-- assert that the rendered image contains a substantial amber-pixel population
-- repeat against the published GitHub Pages URL after deployment
+- walk `L2 close-up`, `L2 wave` and `Sun / Earth orbit`, capturing a screenshot of each
+- assert per view:
+  - the rendered image contains a substantial amber-pixel population
+  - Webb's Earth distance is inside the Sun–Earth L2 band (1.0–2.0 million km)
+  - the drawn halo spans one revolution (150–220 days) and its ends land within 150 000 km of each other
+  - wherever Webb is on screen, amber pixels are within 40 px of the projected sprite
+- repeat the whole sequence against the published GitHub Pages URL after deployment
+
+Counting amber pixels is not sufficient on its own. Every regression this project has hit rendered plenty of amber; what was wrong was *where* it was. An assertion must tie the spacecraft to its path, and the path to one revolution.
 
 Current files:
 - `scripts/smoke-jwst-wave.mjs`
 - `.github/workflows/smoke-jwst-wave.yml`
+
+The renderer exposes `window.__threeObservatories` purely so this test can read the state it asserts on. It is a test seam, not an API.
 
 ## 9. Current implementation milestones
 
@@ -270,7 +313,7 @@ Current files:
 8. User can switch among Earth/GSE, L2, heliocentric, follow, and dedicated L2-arrival views.
 9. Orbit trails can be toggled.
 10. UI/source copy exposes provenance for Hubble/Webb truth state.
-11. Local and published L2-Wave smoke tests verify the amber Webb trajectory is visibly rendered.
+11. Local and published smoke tests verify, in three views, that the amber Webb trajectory is rendered, that Webb sits on it, and that it is drawn as one measured halo revolution.
 
 ## 10. Later scientific features
 

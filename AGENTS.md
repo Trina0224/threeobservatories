@@ -118,6 +118,42 @@ Three.js scene graph, cameras, labels, trails, vectors, scale transforms, spacec
 
 Timeline, time-rate controls, camera/view selection, truth-vs-educational scale, overlays, source/provenance display.
 
+### What exists today
+
+`src/core/`, `src/physics/` and `src/data/` are real and follow the rules above.
+`src/missions/`, `src/render/` and `src/ui/` are not split out yet: the
+observatory scene graph and its UI both still live in `src/main.js`, and Roman's
+scenes in `src/roman-mission.js` / `src/roman-heliocentric.js`. Split them when a
+change makes it natural; do not treat the remaining monolith as licence to move
+orbital truth back into rendering code.
+
+### One renderer per scene
+
+A scene has exactly one module that builds and drives it. Do not add a second
+module that imports the renderer and then corrects the finished scene each frame,
+and do not monkey-patch Three.js prototypes to keep objects out of a scene —
+change the code that creates them.
+
+Both were tried here and both failed silently: the corrections ran on a second
+`requestAnimationFrame` callback registered after the renderer's, so they were
+overwritten before anything was drawn. Spacecraft were rendered off their own
+trajectories for several commits while every code path looked correct in review.
+`docs/SPEC.md` section 6 records the details.
+
+One prototype patch survives that history: `src/three-add-guard.js`, which
+filtered nullish values out of `add()` while the correction layer existed. The
+layer is gone, and clicking through every observatory and Roman view no longer
+produces the `add: object not an instance of THREE.Object3D` error it was
+suppressing, so the guard is dead weight and should be deleted rather than
+treated as precedent.
+
+### One source per drawn object
+
+A spacecraft's position and its drawn path must be sampled from the same
+function. If a placeholder and a real ephemeris can both reach the screen, they
+will eventually disagree, and the failure looks like a rendering glitch rather
+than a data problem.
+
 ## Simulation modes
 
 Implement and label at least these modes:
