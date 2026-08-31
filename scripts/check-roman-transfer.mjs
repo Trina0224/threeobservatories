@@ -10,7 +10,9 @@ import {
   SUN_EARTH_L2_KM,
   romanTransfer,
   romanTransferRotKm,
+  solveEpsilon,
 } from '../src/missions/roman-transfer.js';
+import { romanHalo } from '../src/missions/roman-halo.js';
 
 const DAY = 86400;
 const TRANSFER_DAYS = 90;
@@ -50,20 +52,24 @@ check(
   `${Math.round(Math.hypot(...Object.values(romanTransferRotKm(0)))).toLocaleString()} km`,
 );
 
-const arrival = romanTransferRotKm(TRANSFER_DAYS * DAY);
-const arrivalL2 = Math.hypot(arrival.x - SUN_EARTH_L2_KM, arrival.y, arrival.z);
+const arrivalL2 = Math.hypot(
+  romanTransferRotKm(TRANSFER_DAYS * DAY).x - SUN_EARTH_L2_KM,
+  romanTransferRotKm(TRANSFER_DAYS * DAY).y,
+  romanTransferRotKm(TRANSFER_DAYS * DAY).z,
+);
 check(
   'arrives inside the L2 region',
-  arrivalL2 < 300_000,
+  arrivalL2 < 800_000,
   `${Math.round(arrivalL2).toLocaleString()} km from L2`,
 );
 
-// A transfer that doubles back on its Earth range is either a bug or a very
-// different mission; either way the renderer should not show it silently.
+// A transfer that doubles back on its Earth range early is either a bug or a
+// very different mission. Checked over the outbound leg only: once it reaches
+// the halo the range oscillates, which is what a halo does.
 let previous = -Infinity;
 let monotonic = true;
 let worst = 0;
-for (let day = 0; day <= TRANSFER_DAYS; day += 0.05) {
+for (let day = 0; day <= 30; day += 0.05) {
   const p = romanTransferRotKm(day * DAY);
   const range = Math.hypot(p.x, p.y, p.z);
   if (range < previous) {
@@ -72,17 +78,35 @@ for (let day = 0; day <= TRANSFER_DAYS; day += 0.05) {
   }
   previous = range;
 }
-check('Earth range increases throughout', monotonic, monotonic ? '' : `drops by ${Math.round(worst)} km`);
+check('Earth range increases over the outbound leg', monotonic, monotonic ? '' : `drops by ${Math.round(worst)} km`);
 
-// The sunward loop is a documented property of a low-energy transfer, not an
-// accident. Assert it so nobody "fixes" it into a different trajectory without
-// also changing the label the UI shows.
+// The whole point of building the transfer from the halo's manifold rather than
+// the L2 point's: it has to end on the halo. With the point manifold this gap
+// was 287 635 km, which is what the picture showed.
+const arrival = romanTransferRotKm(TRANSFER_DAYS * DAY);
+const gapToHalo = Math.min(...romanHalo.samples.map(
+  (p) => Math.hypot(p.x - arrival.x, p.y - arrival.y, p.z - arrival.z),
+));
+check('arrival lands on the halo', gapToHalo < 80_000,
+  `${Math.round(gapToHalo).toLocaleString()} km from the nearest halo point`);
+
+// A direct Earth-to-L2 injection leaves anti-sunward and stays that way. The
+// earlier construction, off the L2 point's manifold, looped sunward for days.
 const earlyX = romanTransferRotKm(2 * DAY).x;
-check(
-  'low-energy arc loops sunward early, as labelled',
-  earlyX < 0,
-  `x = ${Math.round(earlyX).toLocaleString()} km at L+2d`,
-);
+check('departs anti-sunward and stays there', earlyX > 0,
+  `x = ${Math.round(earlyX).toLocaleString()} km at L+2d`);
+
+// Perigee speed should correspond to a real launch injection, not an arbitrary
+// state: slightly sub-escape, the C3 an L2 mission is launched on.
+const c3 = romanTransfer.perigeeSpeedKmS ** 2 - (2 * 398_600.4418) / romanTransfer.perigeeKm;
+check('perigee is a plausible L2 injection', c3 > -2 && c3 < 0.5,
+  `C3 ${c3.toFixed(2)} km²/s² at ${Math.round(romanTransfer.perigeeKm).toLocaleString()} km`);
+
+// The recorded displacement must be what the solver actually produces.
+const solved = solveEpsilon();
+check('recorded manifold displacement matches the re-solved one',
+  Math.abs(solved - romanTransfer.epsilon) / Math.abs(romanTransfer.epsilon) < 5e-3,
+  `${solved.toExponential(4)} re-solved`);
 
 check(
   'samples are ordered in time',

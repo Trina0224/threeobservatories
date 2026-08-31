@@ -6,6 +6,7 @@ import { romanHalo } from './missions/roman-halo.js';
 import {
   SUN_EARTH_L2_KM,
   romanTransfer,
+  romanTransferPath,
   romanTransferRenderKm,
   romanTransferRotKm,
 } from './missions/roman-transfer.js';
@@ -116,7 +117,13 @@ function transferPoint(t) {
   return new THREE.Vector3(rot.x, rot.y, rot.z).divideScalar(KM_PER_UNIT);
 }
 
-const transferPts = Array.from({ length: 320 }, (_, i) => transferPoint((i / 319) * ROMAN_TRANSFER_SECONDS));
+// Drawn through the settling arc past arrival, so the path runs into the halo
+// rather than stopping beside it.
+const transferEndSeconds = romanTransferPath[romanTransferPath.length - 1].t;
+const transferPts = Array.from(
+  { length: 420 },
+  (_, i) => transferPoint((i / 419) * transferEndSeconds),
+);
 const transferTube = tube(transferPts, 0x9d7cff, 0.055, 0.82, false);
 scene.add(transferTube);
 
@@ -479,15 +486,17 @@ document.querySelectorAll('[data-roman-view]').forEach((b) => b.addEventListener
 // numbers that make the first claim checkable, rather than in a vague footnote.
 function describeProvenance() {
   const days = (romanTransfer.coastSeconds + romanTransfer.arcSeconds) / DAY;
-  $('romanProvenance').textContent = 'LOW_ENERGY_CR3BP · not Roman’s flown trajectory';
+  $('romanProvenance').textContent = 'CR3BP_EDUCATIONAL_MODEL · not a NASA ephemeris';
   $('romanProvenanceLine').innerHTML = [
     'Launch events: <b>ACTUAL</b>, NASA Roman launch blog.',
-    `Transfer: <b>integrated Sun–Earth CR3BP</b>, the stable manifold into L2 — `
-      + `${days.toFixed(1)} d, Jacobi drift ${romanTransfer.jacobiDrift.toExponential(1)}, `
-      + `L2 at ${Math.round(SUN_EARTH_L2_KM).toLocaleString()} km. `
-      + 'Every point satisfies the equations of motion. It is a <b>low-energy</b> transfer, so it '
-      + 'loops sunward for the first days before coasting out; that belongs to this transfer class, '
-      + 'not to Roman, which was injected directly. NASA has published no Roman ephemeris.',
+    `Transfer: <b>integrated Sun–Earth CR3BP</b> — the stable manifold <i>of the halo</i>, so it `
+      + `arrives on the halo by construction rather than by fitting. ${days.toFixed(1)} d, `
+      + `perigee ${Math.round(romanTransfer.perigeeKm).toLocaleString()} km at `
+      + `${romanTransfer.perigeeSpeedKmS.toFixed(2)} km/s (C3 `
+      + `${(romanTransfer.perigeeSpeedKmS ** 2 - 2 * 398600.4418 / romanTransfer.perigeeKm).toFixed(2)} km²/s²), `
+      + `Jacobi drift ${romanTransfer.jacobiDrift.toExponential(1)}, L2 at `
+      + `${Math.round(SUN_EARTH_L2_KM).toLocaleString()} km. Every point satisfies the equations of `
+      + 'motion. NASA has published no Roman ephemeris; this is a model, not navigation data.',
     `Halo: <b>computed periodic orbit</b> — Richardson third-order guess corrected until it `
       + `closes, period ${(romanHalo.periodSeconds / DAY).toFixed(1)} d against the family's ~180 d, `
       + `closes to ${romanHalo.closureKm.toFixed(1)} km. A real Sun–Earth L2 halo, but not Roman's; `

@@ -3,7 +3,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { ROMAN_TRANSFER_SECONDS } from './data/roman-mission.js';
 import { createL2Marker } from './render/l2-marker.js';
 import { romanClock } from './missions/roman-clock.js';
-import { romanTransferRotKm } from './missions/roman-transfer.js';
+import { romanTransferPath, romanTransferRotKm } from './missions/roman-transfer.js';
 import { romanHalo } from './missions/roman-halo.js';
 
 const DAY = 86400;
@@ -168,7 +168,11 @@ function helioRoman(t) {
 }
 
 // Roman mission trajectory: launch -> L+90 days only. No fake one-year continuation.
-const pathTimes = Array.from({ length: 320 }, (_, i) => 1860 + i / 319 * (ROMAN_TRANSFER_SECONDS - 1860));
+const transferEndSeconds = romanTransferPath[romanTransferPath.length - 1].t;
+const pathTimes = Array.from(
+  { length: 400 },
+  (_, i) => 1860 + (i / 399) * (transferEndSeconds - 1860),
+);
 const pathPts = pathTimes.map((t) => helioRoman(t));
 const missionPath = tube(pathPts, 0xa986ff, 0.052, 0.88, false);
 scene.add(missionPath);

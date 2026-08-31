@@ -53,10 +53,12 @@ export function deriveHalo() {
 }
 
 function build() {
-  // Halos come in mirror-image northern and southern families. Take the one on
-  // the same side as the transfer's arrival so the two read as one story.
-  const flip = HALO_STATE[2] < 0 ? -1 : 1;
-  let state = [HALO_STATE[0], 0, HALO_STATE[2] * flip, 0, HALO_STATE[4], 0];
+  // Drawn from HALO_STATE exactly as converged, with no mirroring. Halos come in
+  // northern and southern pairs and both are valid, but the transfer in
+  // roman-transfer.js is built from the manifold of *this* state; flipping one
+  // and not the other put the two on opposite sides of the ecliptic, half a
+  // million km apart, while each looked correct on its own.
+  let state = HALO_STATE.slice();
   const start = state;
 
   const dt = HALO_PERIOD / SAMPLE_COUNT;

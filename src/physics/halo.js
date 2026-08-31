@@ -160,3 +160,48 @@ export function correctHalo(system, guessState, {
   }
   return null;
 }
+
+/**
+ * Monodromy matrix: the state transition across one full period, by finite
+ * differences. Six integrations rather than 36 variational equations.
+ *
+ * Pass a negative `period` to get the transition of the backward flow, whose
+ * dominant direction is the *stable* direction of the forward flow.
+ */
+export function monodromy(system, state, period, { steps = 4000, difference = 1e-7 } = {}) {
+  const flow = (start) => {
+    const dt = period / steps;
+    let current = start;
+    for (let i = 0; i < steps; i += 1) current = system.step(current, dt);
+    return current;
+  };
+  const base = flow(state);
+  const matrix = Array.from({ length: 6 }, () => new Array(6).fill(0));
+  for (let column = 0; column < 6; column += 1) {
+    const perturbed = Array.from(state);
+    perturbed[column] += difference;
+    const moved = flow(perturbed);
+    for (let row = 0; row < 6; row += 1) {
+      matrix[row][column] = (moved[row] - base[row]) / difference;
+    }
+  }
+  return { matrix, base };
+}
+
+/**
+ * Dominant eigenvector of a 6x6 by power iteration, returned as a unit vector
+ * with its eigenvalue. A halo's monodromy has a real reciprocal pair with a
+ * large unstable eigenvalue, so this converges quickly and a full eigensolver
+ * would be overkill.
+ */
+export function dominantEigenvector(matrix, { iterations = 400 } = {}) {
+  let vector = [1, 0, 0, 0, 1, 0];
+  let eigenvalue = 0;
+  for (let i = 0; i < iterations; i += 1) {
+    const next = matrix.map((row) => row.reduce((sum, value, j) => sum + value * vector[j], 0));
+    eigenvalue = Math.hypot(...next);
+    if (!(eigenvalue > 0)) return null;
+    vector = next.map((value) => value / eigenvalue);
+  }
+  return { vector, eigenvalue };
+}

@@ -108,16 +108,28 @@ Roman launched on 2026-08-30 and is currently in the transfer phase as this spec
 
 #### Current transfer implementation
 
-`src/missions/roman-transfer.js` integrates the transfer rather than drawing it. It is a Sun–Earth CR3BP stable-manifold arc into L2, built by integrating backwards from the L2 point along the stable eigenvector of the linearised saddle until the arc reaches its closest approach to Earth, with a Keplerian coast placing it on the mission clock. Accuracy label: `LOW_ENERGY_CR3BP`.
+`src/missions/roman-transfer.js` integrates the transfer rather than drawing it. It is the Sun–Earth CR3BP stable manifold **of the halo orbit**, not of the L2 point, with a Keplerian escape leg patched on from separation to its perigee. Accuracy label: `CR3BP_EDUCATIONAL_MODEL`.
 
-Two things about it must stay visible in the UI, and both are:
+Building it from the point's manifold was tried first and produced a visible defect: the manifold of a point converges to the point, so the transfer ended **287 635 km** from the drawn halo — 19% of the Earth–L2 distance. The two curves were different mathematical objects sharing a picture. The manifold of the halo converges onto the halo itself, so the transfer now meets its destination by construction rather than by fitting; the gap is 27 500 km and the drawn path continues past arrival until it merges.
 
-- It is **not** Roman's flown trajectory, and NASA has published no Roman ephemeris to compare against.
-- It is a **low-energy** transfer and therefore a different design class from Roman's direct Falcon Heavy injection: it loops sunward for the first days, then coasts out and arrives at L2 asymptotically. That shape is a property of stable manifolds, not an artefact.
+Construction:
 
-Patching a direct Keplerian escape onto the arc to hide the sunward loop was measured and rejected: the join requires 0.5–1.3 km/s, while a real mid-course correction is metres per second. Presenting that as a correction would be a fabrication.
+1. Take the converged halo and its monodromy matrix, obtained by finite differences over one period rather than by propagating 36 variational equations.
+2. Power-iterate the **backward** monodromy for the stable direction. The forward and backward dominant eigenvalues must agree — they are a reciprocal pair — which is the check that the eigenvector is real.
+3. Displace the halo state along it and integrate backwards. One branch falls toward Earth; the other goes outward.
+4. Solve for the displacement that puts separation-to-arrival at the mission's 90 days.
+5. Patch the Keplerian escape leg using the perigee state's own two-body energy, so the join is exact.
 
-Replacing this with a direct-injection transfer means solving the two-point boundary value problem properly — Richardson third-order halo approximation, differential correction with the state transition matrix, then the manifold tube of the halo rather than of the point. Until that exists, the label stays `LOW_ENERGY_CR3BP`.
+The result departs anti-sunward from the first hours, with perigee 30 100 km at 5.11 km/s — C3 about −0.39 km²/s², which is the class an L2 mission is actually launched on.
+
+It is still **not** Roman's flown trajectory, and NASA has published no Roman ephemeris to compare against.
+
+Two dead ends, recorded so they are not re-explored:
+
+- **Point-manifold plus a direct Keplerian escape.** Measured: the join needs 0.5–1.3 km/s, where a real mid-course correction is metres per second. Presenting that as a correction would be a fabrication.
+- **Forward shooting for a direct transfer.** L2 is a saddle, so arrival lies on the manifold; the problem needs a state-transition-matrix corrector, not a bisection on injection speed.
+
+One trap worth keeping: halos come in mirror-image northern and southern pairs. Flipping the drawn halo to one family while building the transfer from the other put them half a million kilometres apart on opposite sides of the ecliptic, and each looked entirely correct on its own. Both now come from the same converged state, unmirrored.
 
 #### L2 halo
 
