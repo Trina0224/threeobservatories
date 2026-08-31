@@ -189,6 +189,17 @@ Investigate mission ephemerides / tracking products where accessible before clai
 - https://ssd.jpl.nasa.gov/horizons/
 - Use for Sun/Earth/Moon ephemerides, spacecraft state vectors where supported, validation, and generation of browser-friendly cached datasets.
 
+### Astronomical Almanac low-precision solar coordinates
+
+- "Low precision formulae for the Sun's coordinates and the equation of time",
+  The Astronomical Almanac, Section C.
+- Implemented in `src/physics/sun-lowprecision.js`.
+- Accuracy better than 0.01 degrees in ecliptic longitude for 1950-2050.
+- Fallback only: it orients the Sun–Earth rotating frame when the bundled
+  Horizons cache is unavailable or the clock leaves its coverage window. It is
+  never used as a spacecraft trajectory, and it never overrides cached
+  same-epoch Horizons Sun vectors.
+
 ### NASA NAIF SPICE
 
 - https://naif.jpl.nasa.gov/naif/

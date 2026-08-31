@@ -30,15 +30,11 @@ The shared observatory view includes:
 
 **Webb is driven by a repository-local JPL Horizons ephemeris cache, not by browser-to-JPL requests.** JPL's public API is queried by `scripts/update-jwst-ephemeris.mjs` in GitHub Actions. The generated `public/data/jwst-horizons.json` contains Earth-centered ecliptic vectors for JWST spacecraft `-170` and same-epoch Sun vectors. The browser downloads that same-origin JSON file, interpolates both datasets on the shared simulation clock, and transforms Webb into the rotating Sun–Earth display frame.
 
-The checked-in cache currently spans 2025-01-01 through 2028-01-01 at 12-hour cadence. `.github/workflows/update-jwst-ephemeris.yml` can refresh it manually and runs on a schedule. This architecture avoids depending on cross-origin browser access to the JPL service and makes the published visualization deterministic.
+The checked-in cache currently spans 2024-01-01 through 2031-01-01 at 12-hour cadence. `.github/workflows/update-jwst-ephemeris.yml` can refresh it manually and runs on a schedule. This architecture avoids depending on cross-origin browser access to the JPL service and makes the published visualization deterministic.
 
-When the cache is ready:
+Webb's position and Webb's amber path both come from one function, `webbLocalAt()` in `src/main.js`, in every view. Trails, tubes and the heliocentric wave are sampled from that same function, so the telescope cannot drift off its own drawn trajectory and no view can lose its amber line while the others keep it.
 
-- Webb's previous hand-drawn current phase and amber path are suppressed.
-- Earth–L2 and L2 close-up use the cached Horizons state.
-- L2 Wave renders a stable thick amber tube from the cached trajectory rather than rebuilding a competing placeholder every frame.
-
-If the cache cannot load, the old curve remains only as an educational fallback and is not labeled current truth.
+If the cache cannot load, or the clock leaves its coverage window, an educational halo is drawn instead and labeled `EDUCATIONAL FALLBACK` in the focus card. Cached and fallback samples are never blended into one path.
 
 STScI documents JWST's Horizons observer code as `500@-170`. NASA's Meteoroid Engineering Model library also publishes a real Earth-centered JWST trajectory file; it is retained as an independent historical/reference source, not silently extrapolated beyond its supplied dates.
 
@@ -49,7 +45,13 @@ The repository includes a browser smoke test for the Webb L2 Wave:
 - `scripts/smoke-jwst-wave.mjs`
 - `.github/workflows/smoke-jwst-wave.yml`
 
-It opens the local build and the published GitHub Pages site, selects `Observatories → L2 Wave`, waits for the local ephemeris cache to report ready, captures screenshots, and asserts that a substantial amber trajectory is actually present in the rendered pixels. This was added after a failure mode where the code path appeared valid but the published yellow Webb curve was absent.
+It opens the local build and the published GitHub Pages site, waits for the local ephemeris cache to report ready, then walks `L2 close-up`, `L2 wave` and `Sun / Earth orbit`. For each it captures a screenshot and asserts that
+
+- the amber Webb trajectory is actually present in the rendered pixels,
+- Webb's Earth distance is inside the Sun–Earth L2 band, and
+- wherever Webb is on screen, amber pixels are within 40 px of the projected sprite.
+
+The last check exists because of a real regression: the amber path and the Webb sprite were once produced by two different code paths, so the telescope was rendered off its own trajectory, one view lost its amber line entirely, and a leftover placeholder path was drawn beside the real one. Pixel counting alone did not catch any of that.
 
 ### L2 illumination and thermal geometry
 

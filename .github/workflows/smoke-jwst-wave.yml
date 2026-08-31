@@ -6,7 +6,8 @@ on:
     paths:
       - 'index.html'
       - 'src/main.js'
-      - 'src/main-core.js'
+      - 'src/physics/**'
+      - 'src/data/**'
       - 'src/three-add-guard.js'
       - 'public/data/jwst-horizons.json'
       - 'scripts/smoke-jwst-wave.mjs'
@@ -39,7 +40,7 @@ jobs:
 
       - name: Verify local L2 wave
         env:
-          SMOKE_OUTPUT: jwst-wave-local.png
+          SMOKE_OUTPUT_PREFIX: jwst-wave-local
         run: node scripts/smoke-jwst-wave.mjs
 
       - name: Wait for GitHub Pages deployment
@@ -48,7 +49,7 @@ jobs:
       - name: Verify published L2 wave
         env:
           SMOKE_URL: https://trina0224.github.io/threeobservatories/?build=${{ github.sha }}
-          SMOKE_OUTPUT: jwst-wave-live.png
+          SMOKE_OUTPUT_PREFIX: jwst-wave-live
         run: node scripts/smoke-jwst-wave.mjs
 
       - name: Upload screenshots

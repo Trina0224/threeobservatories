@@ -58,6 +58,30 @@ Use for educational CR3BP and halo-orbit dynamics.
 
 The frame rotates with the Sun–Earth line. It is not inertial. Keep normalized CR3BP variables isolated from physical ephemeris states and provide explicit conversion code.
 
+#### The one implemented rotating frame: `ROT`
+
+`src/physics/frames.js` defines exactly one Sun–Earth rotating frame. Every
+observatory-scene position goes through it, and nothing else in the code base may
+define a second one.
+
+- origin: Earth
+- +X: anti-sunward, so Sun–Earth L2 lies near +X
+- +Y: ecliptic north, Gram-Schmidt orthogonalized against +X
+- +Z: **X × Y** — which points along Earth's *retrograde* direction
+
+The +Z choice is not cosmetic. `(antiSun, ecliptic north, prograde)` is a
+**left-handed** triple. Feeding left-handed coordinates into the right-handed
+Three.js scene graph mirrors every halo orbit: the trajectory keeps its shape and
+its distances, so the result looks completely plausible while running backwards.
+Define +Z as X × Y and the render mapping stays a pure rotation.
+
+The renderer's local units are ROT kilometres divided by `KM_PER_LOCAL_UNIT`;
+that division is the only thing that happens at the render boundary.
+
+Because ROT's +Y is drawn as the scene's +Y, the heliocentric views must turn the
+*opposite* way around +Y from the Earth's real increasing ecliptic longitude.
+That single sign lives in `earthHelioState()` in `src/main.js`.
+
 ## Rendering frame
 
 Three.js scene axes are a presentation choice. The renderer may map physical axes into Three.js axes for camera convenience, but the mapping must live in one documented transform.
