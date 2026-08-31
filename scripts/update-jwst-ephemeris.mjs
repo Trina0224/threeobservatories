@@ -2,8 +2,8 @@ import { mkdir, writeFile } from 'node:fs/promises';
 
 const HORIZONS_ENDPOINT = 'https://ssd.jpl.nasa.gov/api/horizons.api';
 const OUTPUT_PATH = new URL('../public/data/jwst-horizons.json', import.meta.url);
-const START_TIME = '2025-01-01';
-const STOP_TIME = '2028-01-01';
+const START_TIME = '2024-01-01';
+const STOP_TIME = '2031-01-01';
 const STEP_SIZE = '12 h';
 
 function horizonsUrl(command) {
@@ -82,7 +82,7 @@ function parseVectorTable(text, label) {
 }
 
 async function main() {
-  // JPL's fair-use policy requests one API call at a time. Keep these sequential.
+  // JPL's fair-use guidance requests one API call at a time. Keep these sequential.
   const jwst = await requestHorizons('-170', 'JWST');
   const sun = await requestHorizons('10', 'Sun');
 
