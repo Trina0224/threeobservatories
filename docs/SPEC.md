@@ -122,7 +122,7 @@ Construction:
 
 The result departs anti-sunward from the first hours, with perigee 30 100 km at 5.11 km/s — C3 about −0.39 km²/s², which is the class an L2 mission is actually launched on.
 
-It is still **not** Roman's flown trajectory, and NASA has published no Roman ephemeris to compare against.
+It is still **not** Roman's flown trajectory — and since 2026-08-30 there is now something to compare against, so this is measured rather than asserted. See *Measured against NASA* below.
 
 Two dead ends, recorded so they are not re-explored:
 
@@ -131,13 +131,73 @@ Two dead ends, recorded so they are not re-explored:
 
 One trap worth keeping: halos come in mirror-image northern and southern pairs. Flipping the drawn halo to one family while building the transfer from the other put them half a million kilometres apart on opposite sides of the ecliptic, and each looked entirely correct on its own. Both now come from the same converged state, unmirrored.
 
+#### Measured against NASA
+
+Roman launched on 2026-08-30 and JPL publishes its trajectory as **Horizons
+target `-211`**. `scripts/compare-roman-horizons.mjs` measures the CR3BP model
+against it over the 28 days NASA covers:
+
+| quantity | result |
+|---|---|
+| range from Earth | model within 2–5% of NASA from T+1 d onward |
+| C3 at NASA's first sample | NASA −0.620 km²/s², model ≈ −0.4 km²/s² |
+| direction | model up to **515 724 km** away, worst at T+19 d |
+
+The model has the energy and the timing of an Earth-to-L2 transfer right and the
+**orientation** wrong. Orientation follows from launch azimuth, launch date and
+target halo; none of those follow from the equations of motion. No amount of
+better integration recovers it.
+
+The rule that follows: **where NASA publishes states, draw NASA's states.** The
+model is the fallback, not the default.
+
+#### The drawn track
+
+`src/missions/roman-track.js` is the single source of Roman's position for both
+scenes, in decreasing order of authority:
+
+1. **measured** — NASA's published states, `public/data/roman-horizons.json`,
+   refreshed by `scripts/update-roman-ephemeris.mjs`.
+2. **bridge** — `src/missions/roman-continuation.js`, a free CR3BP integration
+   of NASA's own final measured state.
+3. **model** — the pure transfer above, only if the cache fails to load.
+
+Measured and computed spans are drawn in **different colours**, so a screenshot
+cannot imply the whole curve is data.
+
+The bridge invents **no manoeuvre**, which is the whole point of it. NASA's file
+is `RST_EPH_PRED_NOMNVR_...` — `NOMNVR` means no manoeuvres — so the honest
+continuation of it is a free flight. The seam between measured and computed is
+**0.47 km**, against the 481 223 km gap the pure model left at the same instant.
+
+The consequence is stated rather than hidden: with no insertion modelled, the
+arc reaches L2 and then departs along the unstable manifold, as any uninserted
+trajectory must. It is drawn only as far as its closest approach to L2,
+**494 968 km at L+104.2 d**, and the halo is drawn as a destination rather than
+as somewhere this path arrives.
+
+Two ways of connecting it to the halo were tried and rejected:
+
+- **Target the halo's position.** Converges at 15 m/s but arrives with 379 m/s
+  of velocity mismatch, so it crosses the halo and leaves. That is not an
+  insertion.
+- **Target the halo's stable manifold**, the formulation that would coast on.
+  Did not converge at any amplitude from 100 000 to 500 000 km.
+
+Publishing a fitted burn NASA has not announced would be inventing mission
+design, so none is drawn.
+
 #### L2 halo
 
-`src/missions/roman-halo.js` computes the halo rather than drawing it: Richardson's third-order approximation supplies a starting state, then differential correction moves `z0` and `vy0` until the orbit closes on itself. Freeing `x0` and `vy0` instead leaves the out-of-plane velocity uncontrolled and the corrector wanders off the family.
+`src/missions/roman-halo.js` computes the halo rather than drawing it: Richardson's third-order approximation supplies a starting state, then differential correction runs until the orbit closes on itself.
+
+**Which two variables you free decides which orbit you get, and getting it wrong is silent.** Freeing `(z0, vy0)` lets Newton walk the out-of-plane amplitude to zero, and z = 0 is the **planar Lyapunov orbit** — periodic, closing to under a kilometre, passing every convergence test, and not a halo. A scan of the family found it collapsing that way at six of seven requested amplitudes.
+
+To hold an amplitude, use `correctHaloAtAmplitude`, which fixes `z0` and frees `(x0, vy0)`. The Richardson guess is outside Newton's basin at this stiffness — the unstable eigenvalue is around 1500 per revolution — so `continueHaloToAmplitude` walks the family in small steps from an already-converged orbit, correcting at each one. Closure comes out at 0.0 km from 100 000 km to 500 000 km of amplitude.
 
 The period lands at 180.1 days, which is the check that the result belongs to the known Sun–Earth L2 family rather than merely looking like a halo. The orbit closes to 0.2 km. Its size — about 700 000 km across in-plane — is inherent: the family's minimum in-plane amplitude is around 211 000 km and the in-plane ratio `k` is about 3.19, so a Sun–Earth L2 halo cannot be small. The GSE cameras are framed for that.
 
-It is a real member of the family but it is not Roman's halo; NASA has published no amplitude for that.
+It is a real member of the family but it is not Roman's halo; NASA has published no amplitude for that, and the 28 days of published trajectory end well before the halo is reached.
 
 Two implementation notes worth keeping:
 

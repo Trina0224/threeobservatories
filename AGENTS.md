@@ -64,6 +64,19 @@ When sources disagree, prefer in this order:
 
 Record the source URL, product date/version, coordinate frame, units, epoch/time scale, and any transformation applied to imported data.
 
+**Re-check "no data exists" claims against the service, not against this file.**
+`reference.md` asserted for months that NASA had published no Roman ephemeris.
+That was true before launch and false the day after it, and the assertion was
+first re-checked against the wrong NAIF ids (-244, -227) before -211 was found.
+Missions launch; ask the service.
+
+**A model is not a substitute for data that exists.** Measured against NASA's
+published Roman trajectory, the project's CR3BP transfer tracked the *range*
+from Earth to within 2-5% and was up to 515 724 km wrong in *direction* — the
+orientation of a transfer follows from launch azimuth, launch date and target
+halo, not from the equations of motion. Where an authoritative ephemeris covers
+a span, draw it; the integration is the fallback beyond it, drawn distinctly.
+
 ## Required reading before changing orbital code
 
 Read `docs/RESEARCH_SOURCES.md`, `docs/COORDINATES.md`, and `docs/UPSTREAM_REUSE.md` first.
@@ -89,6 +102,15 @@ Minimum concepts:
 6. Historical playback and free-running physics must be visibly distinguishable in the UI.
 7. Every state vector must have an explicit epoch, frame, units, and source.
 8. Keep Sun/Earth/Moon ephemerides independent from decorative sphere rotation.
+9. Do not invent a manoeuvre. If a published trajectory ends before its
+   destination, continuing it by free integration is honest; solving for a burn
+   the mission has not announced and drawing the result as the mission's plan is
+   not. Say on screen where the data stops.
+10. A converged solution is not necessarily the solution you asked for. A halo
+   corrector that frees `z0` will happily return the planar Lyapunov orbit,
+   which is periodic and closes to under a kilometre while having no
+   out-of-plane amplitude at all. Assert the property you actually wanted, not
+   just the residual.
 
 ## Architecture boundaries
 
@@ -188,10 +210,28 @@ At minimum validate:
 
 - Hubble altitude/orbital period/order-of-magnitude against NASA published values.
 - JWST distance and halo-orbit behavior against NASA/STScI published ephemeris/plots.
-- Roman transfer/L2 geometry against NASA SVS and mission data products.
+- Roman transfer/L2 geometry against JPL Horizons target `-211`, the published
+  post-launch trajectory. `scripts/compare-roman-horizons.mjs` does this; it
+  asserts nothing, because its job is to measure how far the model is from the
+  real flight path, not to make the model pass.
 - Sun–Earth L2 direction and Earth/Sun geometry in the chosen visualization frame.
 
 Prefer quantitative checks over screenshots.
+
+Run before pushing:
+
+    npx eslint .                        # undefined references and dead bindings
+    node scripts/check-roman-halo.mjs
+    node scripts/check-roman-transfer.mjs
+    node scripts/check-roman-track.mjs
+
+`node --check` validates syntax, not scope. It cannot see a reference to a name
+that no longer exists, which is how a removed `const transferTube` left a live
+`transferTube.visible` behind: the page threw at runtime and only the browser
+smoke test caught it, several minutes later in CI. Lint first.
+
+The browser checks (`scripts/smoke-jwst-wave.mjs`, `scripts/smoke-roman-track.mjs`)
+need a CDN that the authoring sandbox may not reach; CI runs them.
 
 ## Spacecraft imagery and copyright
 
