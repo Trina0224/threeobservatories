@@ -235,6 +235,13 @@ DOI: https://doi.org/10.1007/BF01358403
 
 Used as a classical reference for three-dimensional periodic halo-orbit families.
 
+**Implementation note.** `src/physics/cr3bp.js` and `src/missions/roman-transfer.js` use these
+results directly: the collinear-point quintic locates Sun–Earth L2, and the linearised saddle
+at that point supplies the stable eigenvector from which Roman's displayed transfer is
+integrated. The resulting path is a low-energy stable-manifold arc, labelled `LOW_ENERGY_CR3BP`
+in the UI; it is a generic CR3BP result, not Roman mission data, and it is a different transfer
+class from Roman's direct injection. See docs/SPEC.md section 2.
+
 ---
 
 ## Software / rendering dependencies

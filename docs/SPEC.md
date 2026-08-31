@@ -106,6 +106,21 @@ Required milestones:
 
 Roman launched on 2026-08-30 and is currently in the transfer phase as this specification is written. Historical/current-state support must therefore be designed from the start rather than hardcoding a future pre-launch scenario.
 
+#### Current transfer implementation
+
+`src/missions/roman-transfer.js` integrates the transfer rather than drawing it. It is a Sun–Earth CR3BP stable-manifold arc into L2, built by integrating backwards from the L2 point along the stable eigenvector of the linearised saddle until the arc reaches its closest approach to Earth, with a Keplerian coast placing it on the mission clock. Accuracy label: `LOW_ENERGY_CR3BP`.
+
+Two things about it must stay visible in the UI, and both are:
+
+- It is **not** Roman's flown trajectory, and NASA has published no Roman ephemeris to compare against.
+- It is a **low-energy** transfer and therefore a different design class from Roman's direct Falcon Heavy injection: it loops sunward for the first days, then coasts out and arrives at L2 asymptotically. That shape is a property of stable manifolds, not an artefact.
+
+Patching a direct Keplerian escape onto the arc to hide the sunward loop was measured and rejected: the join requires 0.5–1.3 km/s, while a real mid-course correction is metres per second. Presenting that as a correction would be a fabrication.
+
+Replacing this with a direct-injection transfer means solving the two-point boundary value problem properly — Richardson third-order halo approximation, differential correction with the state transition matrix, then the manifold tube of the halo rather than of the point. Until that exists, the label stays `LOW_ENERGY_CR3BP`.
+
+The halo loop drawn at the L2 end is still a schematic figure, not a computed orbit. It is the next thing in this view that should stop being hand-drawn.
+
 ## 3. Shared simulation clock
 
 The application has one canonical simulation time.
@@ -295,8 +310,21 @@ The repository must retain an automated browser smoke test for Webb's L2 path:
 
 Counting amber pixels is not sufficient on its own. Every regression this project has hit rendered plenty of amber; what was wrong was *where* it was. An assertion must tie the spacecraft to its path, and the path to one revolution.
 
+The Roman transfer is checked numerically in Node, with no browser, because the
+CR3BP is only worth having if its answers are checkable:
+
+- Sun–Earth L2 distance against the published ~1.5 million km
+- Jacobi constant drift across the arc (the only integral of motion, so the only
+  honest measure of the integration)
+- transfer duration against the mission's 90 days
+- departure at the separation altitude, arrival inside the L2 region
+- Earth range increasing throughout
+- the sunward loop, asserted deliberately so that changing the trajectory class
+  also forces the UI label to change
+
 Current files:
 - `scripts/smoke-jwst-wave.mjs`
+- `scripts/check-roman-transfer.mjs`
 - `.github/workflows/smoke-jwst-wave.yml`
 
 The renderer exposes `window.__threeObservatories` purely so this test can read the state it asserts on. It is a test seam, not an API.

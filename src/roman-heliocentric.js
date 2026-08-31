@@ -3,12 +3,16 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { ROMAN_TRANSFER_SECONDS } from './data/roman-mission.js';
 import { createL2Marker } from './render/l2-marker.js';
 import { romanClock } from './missions/roman-clock.js';
+import { romanTransferRotKm } from './missions/roman-transfer.js';
 
 const DAY = 86400;
 const YEAR = 365.256363004 * DAY;
 const AU = 22;
 const KM_PER_AU_RENDER = 149_597_870.7 / AU;
 const L2_OFFSET = 1_500_000 / KM_PER_AU_RENDER;
+// EDUCATIONAL_SCALE: at 1 AU = 22 render units the whole Earth-L2 system is
+// smaller than the drawn Earth, so out-of-plane motion is exaggerated to read.
+const OUT_OF_PLANE_EXAGGERATION = 3.2;
 const $ = (id) => document.getElementById(id);
 
 const canvas = $('romanHelioScene');
@@ -130,19 +134,19 @@ new THREE.TextureLoader().load('./public/assets/spacecraft/roman.png', (t) => {
   romanMat.needsUpdate = true;
 });
 
+// The integrated CR3BP transfer, in the ROT axes this scene already uses:
+// x anti-sunward, y ecliptic north, z completing the right-handed set.
 function localTransferKm(t) {
-  if (t <= 1860) return new THREE.Vector3(80_000 * Math.max(0, t / 1860), 0, 0);
-  const u = THREE.MathUtils.clamp((t - 1860) / (ROMAN_TRANSFER_SECONDS - 1860), 0, 1);
-  const ease = 1 - Math.pow(1 - u, 2.1);
-  const radialKm = 80_000 + 1_420_000 * ease;
-  const verticalKm = 320_000 * Math.sin(Math.PI * u) * (1 - 0.30 * u);
-  const tangentialKm = 180_000 * Math.sin(Math.PI * u) * Math.sin(Math.PI * (0.25 + 0.85 * u));
-  return new THREE.Vector3(radialKm, verticalKm, tangentialKm);
+  const p = romanTransferRotKm(t);
+  return new THREE.Vector3(p.x, p.y, p.z);
 }
 
 function helioBasis(t) {
-  // Mission elapsed time starts at launch. Over ~90 days Earth advances ~89 degrees.
-  const theta = (t / YEAR) * Math.PI * 2;
+  // Mission elapsed time starts at launch. Over ~90 days Earth advances ~89
+  // degrees. The angle runs negative for the same reason as the observatory
+  // scene: with +Y drawn as ecliptic north, a scene that turns the other way
+  // would mirror the trajectory. See docs/COORDINATES.md.
+  const theta = -(t / YEAR) * Math.PI * 2;
   const radial = new THREE.Vector3(Math.cos(theta), 0, Math.sin(theta));
   const tangent = new THREE.Vector3(-Math.sin(theta), 0, Math.cos(theta));
   return { theta, radial, tangent, up: new THREE.Vector3(0, 1, 0), earth: radial.clone().multiplyScalar(AU) };
@@ -152,8 +156,10 @@ function localToHelio(localKm, t) {
   const b = helioBasis(t);
   return b.earth.clone()
     .add(b.radial.clone().multiplyScalar(localKm.x / KM_PER_AU_RENDER))
-    .add(b.up.clone().multiplyScalar(localKm.y / KM_PER_AU_RENDER * 3.2))
-    .add(b.tangent.clone().multiplyScalar(localKm.z / KM_PER_AU_RENDER * 3.2));
+    // EDUCATIONAL_SCALE: out-of-plane motion is a few hundred thousand km against
+    // a 150 million km orbit radius, so it is exaggerated to stay visible here.
+    .add(b.up.clone().multiplyScalar((localKm.y / KM_PER_AU_RENDER) * OUT_OF_PLANE_EXAGGERATION))
+    .add(b.tangent.clone().multiplyScalar((localKm.z / KM_PER_AU_RENDER) * OUT_OF_PLANE_EXAGGERATION));
 }
 
 function helioRoman(t) {

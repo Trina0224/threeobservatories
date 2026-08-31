@@ -1,4 +1,4 @@
-name: Smoke test JWST L2 wave
+name: Numerical and rendering checks
 
 on:
   workflow_dispatch:
@@ -6,11 +6,18 @@ on:
     paths:
       - 'index.html'
       - 'src/main.js'
+      - 'src/roman-mission.js'
+      - 'src/roman-heliocentric.js'
+      - 'src/roman-entry.js'
+      - 'src/ui/**'
       - 'src/physics/**'
       - 'src/data/**'
       - 'src/three-add-guard.js'
       - 'public/data/jwst-horizons.json'
       - 'scripts/smoke-jwst-wave.mjs'
+      - 'scripts/check-roman-transfer.mjs'
+      - 'src/missions/**'
+      - 'src/render/**'
       - '.github/workflows/smoke-jwst-wave.yml'
 
 permissions:
@@ -31,6 +38,9 @@ jobs:
 
       - name: Install browser test dependencies
         run: npm install --no-save playwright-core@1.55.0 pngjs@7.0.0
+
+      - name: Check the Roman transfer physics
+        run: node scripts/check-roman-transfer.mjs
 
       - name: Start local site
         run: |

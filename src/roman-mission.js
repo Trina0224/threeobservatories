@@ -3,6 +3,12 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { createL2Marker } from './render/l2-marker.js';
 import { romanClock } from './missions/roman-clock.js';
 import {
+  SUN_EARTH_L2_KM,
+  romanTransfer,
+  romanTransferRenderKm,
+  romanTransferRotKm,
+} from './missions/roman-transfer.js';
+import {
   CRUISE_EVENTS,
   LAUNCH_DETAIL_SECONDS,
   LAUNCH_EVENTS,
@@ -95,32 +101,21 @@ function tube(points, color, radius = 0.045, opacity = 0.72, closed = false) {
   );
 }
 
+// 1.5 million km of Sun-Earth L2 distance is drawn as L2_UNITS, so one scene
+// unit is 100 000 km. The scene's axes are the ROT axes of src/physics/frames.js.
+const KM_PER_UNIT = 1_500_000 / L2_UNITS;
+
+// EDUCATIONAL_SCALE: Earth is drawn at 58 000 km of radius here, so the true
+// near-Earth leg would be entirely inside the sphere. See educationalRangeKm.
+const NEAR_EARTH_OFFSET_KM = 62_000;
+const NEAR_EARTH_FADE_KM = 400_000;
+
 function transferPoint(t) {
-  if (t <= 1860) {
-    const u = Math.max(0, t / 1860);
-    const r = 0.7 + 1.1 * Math.pow(u, 1.25);
-    const a = -0.9 + u * 1.55;
-    return new THREE.Vector3(Math.cos(a) * r, 0.38 * Math.sin(u * Math.PI), Math.sin(a) * r * 0.62);
-  }
-  const u = THREE.MathUtils.clamp((t - 1860) / (ROMAN_TRANSFER_SECONDS - 1860), 0, 1);
-  const ease = 1 - Math.pow(1 - u, 2.1);
-  const x = 0.8 + 14.2 * ease;
-  const y = 3.2 * Math.sin(Math.PI * u) * (1 - 0.30 * u);
-  const z = 1.8 * Math.sin(Math.PI * u) * Math.sin(Math.PI * (0.25 + 0.85 * u));
-  if (u < 0.84) return new THREE.Vector3(x, y, z);
-  const q = (u - 0.84) / 0.16;
-  const haloA = q * Math.PI * 1.55 - 0.55;
-  const halo = new THREE.Vector3(
-    L2_UNITS + 0.75 * Math.sin(2 * haloA),
-    2.35 * Math.cos(haloA),
-    1.75 * Math.sin(haloA),
-  );
-  const base = new THREE.Vector3(x, y, z);
-  const blend = q * q * (3 - 2 * q);
-  return base.lerp(halo, blend);
+  const rot = romanTransferRenderKm(t, NEAR_EARTH_OFFSET_KM, NEAR_EARTH_FADE_KM);
+  return new THREE.Vector3(rot.x, rot.y, rot.z).divideScalar(KM_PER_UNIT);
 }
 
-const transferPts = Array.from({ length: 280 }, (_, i) => transferPoint(1860 + (i / 279) * (ROMAN_TRANSFER_SECONDS - 1860)));
+const transferPts = Array.from({ length: 320 }, (_, i) => transferPoint((i / 319) * ROMAN_TRANSFER_SECONDS));
 const transferTube = tube(transferPts, 0x9d7cff, 0.055, 0.82, false);
 scene.add(transferTube);
 
@@ -259,10 +254,13 @@ function phaseFor(t) {
   return 'HALO-ORBIT ACQUISITION';
 }
 
-function approxEarthDistanceKm(t) {
-  if (t < 1860) return 200 + 34000 * Math.pow(t / 1860, 1.45);
-  const p = transferPoint(t);
-  return Math.max(34000, p.length() * 100000);
+// Readouts report the integrated state, never the exaggerated render position.
+function rangesKm(t) {
+  const p = romanTransferRotKm(t);
+  return {
+    earthKm: Math.hypot(p.x, p.y, p.z),
+    l2Km: Math.hypot(p.x - SUN_EARTH_L2_KM, p.y, p.z),
+  };
 }
 
 function setView(name) {
@@ -341,8 +339,7 @@ function updateMissionObjects(dt) {
 function updateReadouts() {
   const t = state.elapsed;
   const evt = eventAtOrBefore(t);
-  const earthKm = approxEarthDistanceKm(t);
-  const l2Km = Math.abs(1_500_000 - earthKm);
+  const { earthKm, l2Km } = rangesKm(t);
   $('romanMet').textContent = formatMET(t);
   $('romanUtc').textContent = new Date(ROMAN_LAUNCH_UTC + t * 1000).toISOString().replace('T', ' ').replace('.000Z', 'Z');
   $('romanPhase').textContent = phaseFor(t);
@@ -484,6 +481,25 @@ $('romanRate').addEventListener('input', (e) => {
   $('romanRateReadout').textContent = formatRate(state.rate);
 });
 document.querySelectorAll('[data-roman-view]').forEach((b) => b.addEventListener('click', () => setView(b.dataset.romanView)));
+
+// The transfer is an integrated model, not a NASA data product, and it is a
+// different transfer class from the one Roman flew. Say both on screen, with the
+// numbers that make the first claim checkable, rather than in a vague footnote.
+function describeProvenance() {
+  const days = (romanTransfer.coastSeconds + romanTransfer.arcSeconds) / DAY;
+  $('romanProvenance').textContent = 'LOW_ENERGY_CR3BP · not Roman’s flown trajectory';
+  $('romanProvenanceLine').innerHTML = [
+    'Launch events: <b>ACTUAL</b>, NASA Roman launch blog.',
+    `Transfer: <b>integrated Sun–Earth CR3BP</b>, the stable manifold into L2 — `
+      + `${days.toFixed(1)} d, Jacobi drift ${romanTransfer.jacobiDrift.toExponential(1)}, `
+      + `L2 at ${Math.round(SUN_EARTH_L2_KM).toLocaleString()} km. `
+      + 'Every point satisfies the equations of motion. It is a <b>low-energy</b> transfer, so it '
+      + 'loops sunward for the first days before coasting out; that belongs to this transfer class, '
+      + 'not to Roman, which was injected directly. NASA has published no Roman ephemeris.',
+    'Cruise milestones: <b>PROJECTED</b>.',
+  ].join(' ');
+}
+describeProvenance();
 
 buildTimeline();
 $('romanRate').value = '433';
