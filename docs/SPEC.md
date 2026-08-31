@@ -119,7 +119,18 @@ Patching a direct Keplerian escape onto the arc to hide the sunward loop was mea
 
 Replacing this with a direct-injection transfer means solving the two-point boundary value problem properly — Richardson third-order halo approximation, differential correction with the state transition matrix, then the manifold tube of the halo rather than of the point. Until that exists, the label stays `LOW_ENERGY_CR3BP`.
 
-The halo loop drawn at the L2 end is still a schematic figure, not a computed orbit. It is the next thing in this view that should stop being hand-drawn.
+#### L2 halo
+
+`src/missions/roman-halo.js` computes the halo rather than drawing it: Richardson's third-order approximation supplies a starting state, then differential correction moves `z0` and `vy0` until the orbit closes on itself. Freeing `x0` and `vy0` instead leaves the out-of-plane velocity uncontrolled and the corrector wanders off the family.
+
+The period lands at 180.1 days, which is the check that the result belongs to the known Sun–Earth L2 family rather than merely looking like a halo. The orbit closes to 0.2 km. Its size — about 700 000 km across in-plane — is inherent: the family's minimum in-plane amplitude is around 211 000 km and the in-plane ratio `k` is about 3.19, so a Sun–Earth L2 halo cannot be small. The GSE cameras are framed for that.
+
+It is a real member of the family but it is not Roman's halo; NASA has published no amplitude for that.
+
+Two implementation notes worth keeping:
+
+- The converged initial state ships as a constant. Correcting it needs a fine crossing integration — coarser than about 4000 steps and the Newton settles onto the **planar Lyapunov orbit** instead, which is periodic and closes perfectly, so nothing looks wrong. `scripts/check-roman-halo.mjs` re-derives the state in CI and asserts an out-of-plane amplitude, which is what separates the two.
+- Richardson's amplitudes are in units of γ, not system units. Mixing those up yields amplitudes about a hundred times too large, and the corrector then converges on something unrelated.
 
 ## 3. Shared simulation clock
 

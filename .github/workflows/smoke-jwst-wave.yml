@@ -16,6 +16,7 @@ on:
       - 'public/data/jwst-horizons.json'
       - 'scripts/smoke-jwst-wave.mjs'
       - 'scripts/check-roman-transfer.mjs'
+      - 'scripts/check-roman-halo.mjs'
       - 'src/missions/**'
       - 'src/render/**'
       - '.github/workflows/smoke-jwst-wave.yml'
@@ -41,6 +42,9 @@ jobs:
 
       - name: Check the Roman transfer physics
         run: node scripts/check-roman-transfer.mjs
+
+      - name: Check the Roman L2 halo
+        run: node scripts/check-roman-halo.mjs
 
       - name: Start local site
         run: |

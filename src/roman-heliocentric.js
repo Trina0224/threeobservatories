@@ -4,6 +4,7 @@ import { ROMAN_TRANSFER_SECONDS } from './data/roman-mission.js';
 import { createL2Marker } from './render/l2-marker.js';
 import { romanClock } from './missions/roman-clock.js';
 import { romanTransferRotKm } from './missions/roman-transfer.js';
+import { romanHalo } from './missions/roman-halo.js';
 
 const DAY = 86400;
 const YEAR = 365.256363004 * DAY;
@@ -178,22 +179,11 @@ const approachLine = line(approachTimes.map((t) => helioRoman(t)), 0xc0a6ff, 0.8
 scene.add(approachLine);
 approachLine.visible = false;
 
-function arrivalBasis() { return helioBasis(ROMAN_TRANSFER_SECONDS); }
-function arrivalL2() {
-  const b = arrivalBasis();
-  return b.radial.clone().multiplyScalar(AU + L2_OFFSET);
-}
-
-const arrival = arrivalBasis();
-const haloPts = Array.from({ length: 220 }, (_, i) => {
-  const a = i / 220 * Math.PI * 2;
-  const c = arrivalL2();
-  // Readable display of the planned local halo shape around arrival L2.
-  c.add(arrival.radial.clone().multiplyScalar(0.035 * Math.sin(2 * a)));
-  c.add(arrival.up.clone().multiplyScalar(0.20 * Math.cos(a)));
-  c.add(arrival.tangent.clone().multiplyScalar(0.15 * Math.sin(a)));
-  return c;
-});
+// The computed periodic halo, placed at the arrival epoch's L2 and mapped
+// through the same local-to-heliocentric transform as the transfer.
+const haloPts = romanHalo.samples.map(
+  (p) => localToHelio(new THREE.Vector3(p.x, p.y, p.z), ROMAN_TRANSFER_SECONDS),
+);
 const haloLoop = tube(haloPts, 0xc6a7ff, 0.018, 0.68, true);
 scene.add(haloLoop);
 haloLoop.visible = false;

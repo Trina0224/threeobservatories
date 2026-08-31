@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { createL2Marker } from './render/l2-marker.js';
 import { romanClock } from './missions/roman-clock.js';
+import { romanHalo } from './missions/roman-halo.js';
 import {
   SUN_EARTH_L2_KM,
   romanTransfer,
@@ -119,10 +120,10 @@ const transferPts = Array.from({ length: 320 }, (_, i) => transferPoint((i / 319
 const transferTube = tube(transferPts, 0x9d7cff, 0.055, 0.82, false);
 scene.add(transferTube);
 
-const haloPts = Array.from({ length: 220 }, (_, i) => {
-  const a = (i / 220) * Math.PI * 2;
-  return new THREE.Vector3(L2_UNITS + 0.75 * Math.sin(2 * a), 2.35 * Math.cos(a), 1.75 * Math.sin(a));
-});
+// The computed periodic halo, not a drawn loop. See src/missions/roman-halo.js.
+const haloPts = romanHalo.samples.map(
+  (p) => new THREE.Vector3(p.x, p.y, p.z).divideScalar(KM_PER_UNIT),
+);
 const haloTube = tube(haloPts, 0xb892ff, 0.043, 0.42, true);
 scene.add(haloTube);
 
@@ -260,16 +261,18 @@ function setView(name) {
   if (name === 'launch') {
     camera.position.set(4.6, 2.8, 6.2); orbit.target.set(0, 0, 0);
   } else if (name === 'gsetop') {
-    camera.position.set(7.5, 19.5, 0.01); orbit.target.set(7.5, 0, 0);
+    // Framed for the computed halo, whose in-plane width is inherent to the
+    // Sun-Earth L2 family: about 700 000 km, half the Earth-L2 distance.
+    camera.position.set(8.5, 27, 0.01); orbit.target.set(8.5, 0, 0);
   } else if (name === 'gseside') {
-    camera.position.set(7.5, 1.8, 20); orbit.target.set(7.5, 0, 0);
+    camera.position.set(8.5, 2.4, 27); orbit.target.set(8.5, 0, 0);
   } else if (name === 'sunface') {
-    camera.position.set(24, 1.0, 0.01); orbit.target.set(7.5, 0, 0);
+    camera.position.set(30, 1.3, 0.01); orbit.target.set(8.5, 0, 0);
   } else if (name === 'follow') {
     const p = transferPoint(state.elapsed);
     camera.position.copy(p).add(new THREE.Vector3(2.7, 1.7, 3.5)); orbit.target.copy(p);
   } else if (name === 'free') {
-    camera.position.set(18, 8, 16); orbit.target.set(7.5, 0, 0);
+    camera.position.set(24, 11, 21); orbit.target.set(8.5, 0, 0);
   }
   orbit.update();
 }
@@ -485,6 +488,10 @@ function describeProvenance() {
       + 'Every point satisfies the equations of motion. It is a <b>low-energy</b> transfer, so it '
       + 'loops sunward for the first days before coasting out; that belongs to this transfer class, '
       + 'not to Roman, which was injected directly. NASA has published no Roman ephemeris.',
+    `Halo: <b>computed periodic orbit</b> — Richardson third-order guess corrected until it `
+      + `closes, period ${(romanHalo.periodSeconds / DAY).toFixed(1)} d against the family's ~180 d, `
+      + `closes to ${romanHalo.closureKm.toFixed(1)} km. A real Sun–Earth L2 halo, but not Roman's; `
+      + 'its amplitude is unpublished.',
     'Cruise milestones: <b>PROJECTED</b>.',
   ].join(' ');
 }
