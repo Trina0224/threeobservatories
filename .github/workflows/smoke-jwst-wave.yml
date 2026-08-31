@@ -18,6 +18,7 @@ on:
       - 'scripts/check-roman-transfer.mjs'
       - 'scripts/check-roman-halo.mjs'
       - 'scripts/check-roman-track.mjs'
+      - 'scripts/smoke-roman-track.mjs'
       - 'public/data/roman-horizons.json'
       - 'src/missions/**'
       - 'src/render/**'
@@ -61,6 +62,12 @@ jobs:
         env:
           SMOKE_OUTPUT_PREFIX: jwst-wave-local
         run: node scripts/smoke-jwst-wave.mjs
+
+      - name: Verify local Roman track
+        env:
+          SMOKE_URL: http://127.0.0.1:4173/
+          SMOKE_OUTPUT_PREFIX: roman-track-local
+        run: node scripts/smoke-roman-track.mjs
 
       - name: Wait for GitHub Pages deployment
         run: sleep 90
