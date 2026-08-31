@@ -1,0 +1,33 @@
+name: Update Roman ephemeris
+
+# Manual. Pulls NASA's published Roman trajectory (Horizons target -211) into
+# public/data/roman-horizons.json and commits it. Run from a runner because the
+# authoring environment cannot reach ssd.jpl.nasa.gov.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Fetch Roman from JPL Horizons
+        run: node scripts/update-roman-ephemeris.mjs
+      - name: Commit the ephemeris
+        run: |
+          if git diff --quiet -- public/data/roman-horizons.json; then
+            echo "No change."
+            exit 0
+          fi
+          git config user.name "Trina"
+          git config user.email "trina.shih@gmail.com"
+          git add public/data/roman-horizons.json
+          git commit -m "Update Roman ephemeris from JPL Horizons (target -211)"
+          git push
