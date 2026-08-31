@@ -7,8 +7,15 @@
 //   2. Differential correction drives it onto an actual periodic orbit: from a
 //      perpendicular crossing of the xz-plane, integrate to the next crossing
 //      and Newton on the initial state until the velocity there is perpendicular
-//      again. Free variables are z0 and vy0, with x0 held; freeing (x0, vy0)
-//      instead leaves vz uncontrolled and wanders off the family.
+//      again.
+//
+// Which two variables you free decides *which* orbit you get, and getting it
+// wrong is silent. `correctHalo` frees (z0, vy0), so Newton may walk the
+// out-of-plane amplitude to zero and land on the planar Lyapunov orbit, which
+// is periodic, closes to under a kilometre, and is not a halo. Use
+// `correctHaloAtAmplitude` -- which holds z0 and frees (x0, vy0) -- whenever the
+// amplitude matters, and reach large amplitudes with `continueHaloFrom`, since
+// the Richardson guess is outside Newton's basin at this stiffness.
 //
 // The Jacobian is finite-differenced rather than propagated as a state
 // transition matrix. That costs two extra integrations per Newton step and
@@ -159,6 +166,99 @@ export function correctHalo(system, guessState, {
     vy0 += dv;
   }
   return null;
+}
+
+/**
+ * Amplitude-preserving corrector: hold z0, free x0 and vy0.
+ *
+ * This is the difference between finding *a* periodic orbit and finding the one
+ * you asked for. `correctHalo` frees z0, so nothing stops Newton from walking
+ * the out-of-plane amplitude down to zero -- and z = 0 is the planar Lyapunov
+ * orbit, which is perfectly periodic and closes to a fraction of a kilometre.
+ * Nothing about the residual looks wrong; the orbit is simply not a halo. A
+ * scan of the family showed it collapsing that way at almost every requested
+ * amplitude, with one lucky exception.
+ *
+ * Holding z0 fixes the amplitude, so the only solutions Newton can reach are
+ * genuine halos of the requested size. The targets are the same: vx = vz = 0 at
+ * the next perpendicular crossing of the xz-plane.
+ */
+export function correctHaloAtAmplitude(system, guessState, {
+  span = 2.2,
+  steps = 4000,
+  minTime = 0.6,
+  tolerance = 1e-11,
+  iterations = 60,
+  difference = 1e-8,
+  maxStep = 5e-3,
+} = {}) {
+  const [initialX, , z0, , initialVy] = guessState;
+  let x0 = initialX;
+  let vy0 = initialVy;
+  const options = { span, steps, minTime };
+  const crossingFor = (x, vy) => nextPlaneCrossing(system, [x, 0, z0, 0, vy, 0], options);
+
+  for (let i = 0; i < iterations; i += 1) {
+    const crossing = crossingFor(x0, vy0);
+    if (!crossing) return null;
+    const [, , , vx, , vz] = crossing.state;
+    if (Math.max(Math.abs(vx), Math.abs(vz)) < tolerance) {
+      return { state: [x0, 0, z0, 0, vy0, 0], period: 2 * crossing.time, iterations: i };
+    }
+    const byX = crossingFor(x0 + difference, vy0);
+    const byVy = crossingFor(x0, vy0 + difference);
+    if (!byX || !byVy) return null;
+    const j11 = (byX.state[3] - vx) / difference;
+    const j12 = (byVy.state[3] - vx) / difference;
+    const j21 = (byX.state[5] - vz) / difference;
+    const j22 = (byVy.state[5] - vz) / difference;
+    const determinant = j11 * j22 - j12 * j21;
+    if (!Number.isFinite(determinant) || Math.abs(determinant) < 1e-24) return null;
+    let dx = (-vx * j22 + vz * j12) / determinant;
+    let dv = (-j11 * vz + j21 * vx) / determinant;
+    const largest = Math.max(Math.abs(dx), Math.abs(dv));
+    if (largest > maxStep) {
+      const scale = maxStep / largest;
+      dx *= scale;
+      dv *= scale;
+    }
+    x0 += dx;
+    vy0 += dv;
+  }
+  return null;
+}
+
+/**
+ * Walk the halo family from a small out-of-plane amplitude up to `targetZ`,
+ * correcting at each step and using each solution to seed the next.
+ *
+ * Continuation rather than a single solve because the Richardson guess is a
+ * third-order approximation: it is close enough to converge for small
+ * amplitudes and drifts away as the amplitude grows. Stepping keeps every
+ * Newton start inside its basin.
+ *
+ * `seed(z)` supplies the initial guess at the smallest amplitude.
+ */
+export function continueHaloToAmplitude(system, seed, targetZ, {
+  startZ = Math.sign(targetZ) * 2e-5,
+  stepCount = 24,
+  ...options
+} = {}) {
+  let solution = null;
+  let guess = null;
+  for (let i = 0; i <= stepCount; i += 1) {
+    // Geometric spacing: the family changes fastest at small amplitude.
+    const z = startZ * (targetZ / startZ) ** (i / stepCount);
+    const start = guess
+      ? [guess[0], 0, z, 0, guess[4], 0]
+      : (() => { const g = seed(z); return g && [g[0], 0, z, 0, g[4], 0]; })();
+    if (!start) return null;
+    const next = correctHaloAtAmplitude(system, start, options);
+    if (!next) return solution;
+    solution = next;
+    guess = next.state;
+  }
+  return solution;
 }
 
 /**
