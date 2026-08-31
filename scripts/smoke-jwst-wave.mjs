@@ -8,7 +8,9 @@
 //   1. the bundled Horizons cache actually loads,
 //   2. Webb's Earth distance is in the L2 range,
 //   3. every view that draws an amber Webb path actually shows amber pixels, and
-//      wherever the sprite is on screen some of them are right next to it.
+//      wherever the sprite is on screen some of them are right next to it,
+//   4. the drawn halo is one revolution that very nearly closes, rather than an
+//      arbitrary window leaving a loose end hanging off the loop.
 //
 // Usage: SMOKE_URL=... CHROME_BIN=... node scripts/smoke-jwst-wave.mjs
 
@@ -52,6 +54,12 @@ const CHECKED_VIEWS = [
 const MIN_EARTH_DISTANCE_KM = 1_000_000;
 const MAX_EARTH_DISTANCE_KM = 2_000_000;
 const ON_PATH_TOLERANCE_PX = 40;
+// One JWST L2 halo revolution is roughly 178-183 days; allow slack either side.
+const MIN_LOOP_SPAN_DAYS = 150;
+const MAX_LOOP_SPAN_DAYS = 220;
+// The loop cannot close exactly -- the halo drifts -- but a window that is not
+// one revolution leaves the ends hundreds of thousands of km apart.
+const MAX_LOOP_CLOSURE_KM = 150_000;
 
 await mkdir('artifacts', { recursive: true });
 const browser = await chromium.launch({
@@ -103,6 +111,7 @@ for (const { view, requireOnScreen } of CHECKED_VIEWS) {
       },
       webbEarthDistanceKm: api?.webbEarthDistanceKm?.() ?? null,
       webbPixel: api?.webbScreenPixel?.() ?? null,
+      webbLoop: api?.webbLoop?.() ?? null,
     };
   });
 
@@ -145,6 +154,18 @@ for (const result of results) {
   }
   if (result.amberPixels < 1_000) {
     throw new Error(`${where}: expected a visible amber Webb path; detected ${result.amberPixels} amber pixels`);
+  }
+  const loop = result.webbLoop;
+  if (!Number.isFinite(loop?.spanDays) || !Number.isFinite(loop?.closureKm)) {
+    throw new Error(`${where}: no Webb halo loop was built`);
+  }
+  if (loop.spanDays < MIN_LOOP_SPAN_DAYS || loop.spanDays > MAX_LOOP_SPAN_DAYS) {
+    throw new Error(`${where}: halo loop spans ${loop.spanDays.toFixed(1)} days, not one revolution`);
+  }
+  if (loop.closureKm > MAX_LOOP_CLOSURE_KM) {
+    throw new Error(
+      `${where}: halo loop ends are ${Math.round(loop.closureKm)} km apart; the orbit is drawn with a loose end`,
+    );
   }
   if (result.requireOnScreen && !result.webbPixel?.onScreen) {
     throw new Error(`${where}: Webb is off screen, so its path cannot be verified`);

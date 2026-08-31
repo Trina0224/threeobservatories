@@ -35,9 +35,14 @@ const HUBBLE_READABLE_RADIUS = 1.05;
 const WEBB_COLOR = 0xefb45d;
 const ROMAN_COLOR = 0xb88cff;
 const HUBBLE_COLOR = 0xdcecff;
-// Webb's local halo path and the heliocentric wave are drawn over these windows
-// centred on the simulation clock.
-const WEBB_TRAIL_HALF_WINDOW_MS = 100 * DAY_MS;
+// Webb's drawn halo is one revolution centred on the simulation clock. The
+// revolution is measured from the cache rather than hard-coded, because the real
+// halo is quasi-periodic: its period drifts and station keeping changes it.
+// These bounds bracket the ~178-183 day L2 halo period with room to spare.
+const WEBB_LOOP_MIN_MS = 120 * DAY_MS;
+const WEBB_LOOP_MAX_MS = 260 * DAY_MS;
+const WEBB_LOOP_COARSE_STEP_MS = DAY_MS;
+const WEBB_LOOP_FINE_STEP_MS = 3_600_000;
 const L2_LOCAL_X = L2_KM / KM_PER_LOCAL_UNIT;
 const AU_RENDER = 22;
 const TRUE_HELIO_LOCAL_SCALE = (AU_RENDER / EARTH_ORBIT_KM) * KM_PER_LOCAL_UNIT;
@@ -545,6 +550,44 @@ function hubbleLocalAt(ms, readable) {
 }
 
 /**
+ * Length of the window whose two ends land closest together in the rotating
+ * frame, i.e. one halo revolution about `centreMs`. Drawing any other span
+ * leaves a loose end hanging off the loop: a 200-day window on a 178-day halo
+ * overshoots by 22 days, and that overshoot reads as a broken orbit.
+ *
+ * The residual end-to-end distance is real. Webb's halo does not close on
+ * itself, so the small step at the seam is the orbit's actual drift over one
+ * revolution and is not bridged with invented trajectory.
+ */
+function webbRevolutionMs(centreMs) {
+  const endpointGap = (windowMs) => {
+    const start = webbTruthLocal(centreMs - windowMs / 2);
+    const end = webbTruthLocal(centreMs + windowMs / 2);
+    return start && end ? start.distanceTo(end) : null;
+  };
+
+  let best = null;
+  let bestGap = Infinity;
+  for (let w = WEBB_LOOP_MIN_MS; w <= WEBB_LOOP_MAX_MS; w += WEBB_LOOP_COARSE_STEP_MS) {
+    const gap = endpointGap(w);
+    if (gap !== null && gap < bestGap) {
+      bestGap = gap;
+      best = w;
+    }
+  }
+  if (best === null) return null;
+
+  for (let w = best - WEBB_LOOP_COARSE_STEP_MS; w <= best + WEBB_LOOP_COARSE_STEP_MS; w += WEBB_LOOP_FINE_STEP_MS) {
+    const gap = endpointGap(w);
+    if (gap !== null && gap < bestGap) {
+      bestGap = gap;
+      best = w;
+    }
+  }
+  return best;
+}
+
+/**
  * Webb path samples in local units. Truth and fallback are never blended: if the
  * centre epoch is covered by the cache the path is drawn only from cached
  * samples, and epochs outside coverage are simply left out of the line.
@@ -637,10 +680,18 @@ function rebuildHubbleTrail() {
   hubbleTrail.geometry = new THREE.BufferGeometry().setFromPoints(points);
 }
 
+let webbLoop = { spanDays: null, closureKm: null };
+
 function rebuildWebbLocalPath() {
-  const points = webbPathPoints(sim.timeMs, WEBB_TRAIL_HALF_WINDOW_MS, 260)
+  // The educational fallback halo is exactly periodic, so one WEBB_PERIOD closes.
+  const windowMs = webbRevolutionMs(sim.timeMs) ?? WEBB_PERIOD * 1000;
+  const points = webbPathPoints(sim.timeMs, windowMs / 2, 280)
     .map(({ point }) => point);
   if (points.length < 3) return;
+  webbLoop = {
+    spanDays: windowMs / DAY_MS,
+    closureKm: points[0].distanceTo(points[points.length - 1]) * KM_PER_LOCAL_UNIT,
+  };
   webbTrail.geometry.dispose();
   webbTrail.geometry = new THREE.BufferGeometry().setFromPoints(points);
   webbTube.geometry.dispose();
@@ -1031,6 +1082,8 @@ window.__threeObservatories = {
   sim,
   webbLocalAt,
   hubbleLocalAt,
+  /** Span and end-to-end closure of the drawn halo loop, for the smoke test. */
+  webbLoop: () => ({ ...webbLoop }),
   /** Webb's Earth distance in km, from whichever source is currently drawn. */
   webbEarthDistanceKm: () => webbLocalAt(sim.timeMs).length() * KM_PER_LOCAL_UNIT,
   /** Webb's position in screenshot pixel coordinates, for on-path assertions. */

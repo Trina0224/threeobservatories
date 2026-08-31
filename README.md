@@ -34,6 +34,10 @@ The checked-in cache currently spans 2024-01-01 through 2031-01-01 at 12-hour ca
 
 Webb's position and Webb's amber path both come from one function, `webbLocalAt()` in `src/main.js`, in every view. Trails, tubes and the heliocentric wave are sampled from that same function, so the telescope cannot drift off its own drawn trajectory and no view can lose its amber line while the others keep it.
 
+In `Earth–L2` and `L2 close-up` the amber path is exactly **one halo revolution** centred on the simulation clock. The revolution length is measured from the cache each time the path is rebuilt — the window whose two ends land closest together in the rotating frame — rather than hard-coded, because the real halo is quasi-periodic and its period drifts (currently about 178–183 days). A fixed window is what produced the earlier broken-looking orbit: 200 days on a 178-day halo overshoots by 22 days, and that overshoot hangs off the loop as a loose end.
+
+The seam never closes perfectly, and it should not. Webb's halo does not return to the same point: over one revolution it drifts roughly 40 000–50 000 km, so a small step remains where the ends meet. That step is the orbit's real drift and is not bridged with invented trajectory.
+
 If the cache cannot load, or the clock leaves its coverage window, an educational halo is drawn instead and labeled `EDUCATIONAL FALLBACK` in the focus card. Cached and fallback samples are never blended into one path.
 
 STScI documents JWST's Horizons observer code as `500@-170`. NASA's Meteoroid Engineering Model library also publishes a real Earth-centered JWST trajectory file; it is retained as an independent historical/reference source, not silently extrapolated beyond its supplied dates.
@@ -49,7 +53,8 @@ It opens the local build and the published GitHub Pages site, waits for the loca
 
 - the amber Webb trajectory is actually present in the rendered pixels,
 - Webb's Earth distance is inside the Sun–Earth L2 band, and
-- wherever Webb is on screen, amber pixels are within 40 px of the projected sprite.
+- wherever Webb is on screen, amber pixels are within 40 px of the projected sprite, and
+- the drawn halo spans one revolution (150–220 days) whose ends land within 150 000 km of each other.
 
 The last check exists because of a real regression: the amber path and the Webb sprite were once produced by two different code paths, so the telescope was rendered off its own trajectory, one view lost its amber line entirely, and a leftover placeholder path was drawn beside the real one. Pixel counting alone did not catch any of that.
 
