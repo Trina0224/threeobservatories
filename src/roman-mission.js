@@ -166,19 +166,9 @@ const romanMat = new THREE.SpriteMaterial({ transparent: true, depthWrite: false
 const romanSprite = new THREE.Sprite(romanMat);
 romanSprite.scale.setScalar(0.72);
 roman.add(romanSprite);
-const glowCanvas = document.createElement('canvas');
-glowCanvas.width = glowCanvas.height = 256;
-const gc = glowCanvas.getContext('2d');
-const gg = gc.createRadialGradient(128, 128, 52, 128, 128, 126);
-gg.addColorStop(0, 'rgba(255,214,125,0)');
-gg.addColorStop(0.55, 'rgba(255,214,125,0)');
-gg.addColorStop(0.72, 'rgba(255,199,95,.68)');
-gg.addColorStop(1, 'rgba(255,160,55,0)');
-gc.fillStyle = gg; gc.fillRect(0, 0, 256, 256);
-const glowTex = new THREE.CanvasTexture(glowCanvas);
-const romanGlow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, transparent: true, opacity: 0.42, depthWrite: false, blending: THREE.AdditiveBlending }));
-romanGlow.scale.setScalar(1.45);
-roman.add(romanGlow);
+// No sunlight halo here. Roman is sunlit for the whole transfer, so a glow that
+// is always on carries no information -- the rule the project already set in
+// docs/SPEC.md section 4 and the README's visual-information policy.
 roman.visible = false;
 scene.add(roman);
 new THREE.TextureLoader().load('./public/assets/spacecraft/roman.png', (texture) => {
@@ -305,7 +295,6 @@ function updateMissionObjects(dt) {
   const deploy = THREE.MathUtils.clamp((t - 1860) / (1800), 0, 1);
   const deployEase = deploy * deploy * (3 - 2 * deploy);
   sunshield.scale.setScalar(0.05 + deployEase * 0.95);
-  romanGlow.material.opacity = 0.36 + 0.06 * Math.sin(performance.now() * 0.0015);
 
   const moonA = (t / (27.321661 * DAY)) * Math.PI * 2 + 0.8;
   moon.position.set(Math.cos(moonA) * 3.84, 0.12 * Math.sin(moonA), Math.sin(moonA) * 3.84);
